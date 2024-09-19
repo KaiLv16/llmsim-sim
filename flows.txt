@@ -1,0 +1,5 @@
+4
+1, 3, src=0, dst=1, size=100000000, depend_flow=[], invoke_flow=[3]
+2, 3, src=1, dst=0, size=100000000, depend_flow=[], invoke_flow=[4]
+3, 3, src=1, dst=0, size=100000000, depend_flow=[1], invoke_flow=[]
+4, 3, src=0, dst=1, size=100000000, depend_flow=[2], invoke_flow=[]
