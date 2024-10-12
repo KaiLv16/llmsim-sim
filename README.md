@@ -82,9 +82,18 @@ inline int get_pkt_status(uint32_t l3Prot){
 
 ### 绘制流量：
 
+#### 选择想要绘制的流量
+
 可以从上述 `llm_flow.txt` 中看到每条流的编号。如果要绘制其中某一些编号的流的flow_rate，需要在 `config/flow_to_draw.txt` 中添加他们的编号。
 
-然后运行绘图程序。该程序使用了`mix/output/test_<x>/test_<x>_snd_rcv_record_file.txt` 中的数据包收发的log：
+你可以使用`python3 get_invoke_chain.py`，并修改 `flow_id` 来获取你想看到的流及它invoke的流的ID。你可以把这个函数的输出复制粘贴到 `config/flow_to_be_plotted.py` 中，这样绘图程序就只绘制在这个list中的流了。
+
+在 `config/flow_to_be_plotted.py` 中，第一行是你想要绘制的流的起始、终止行数。你可以使用 `# ` 来方便地注释掉其中一些行（这也是为什么要把文件命名为 `.py` 的原因 :) ） 
+
+
+#### 运行绘图程序
+
+该程序使用了`mix/output/test_<x>/test_<x>_snd_rcv_record_file.txt` 中的数据包收发的log：
 
 ```
 python3 plot_flow_rate.py --x_min 0.075 --x_max 0.0875 --threshold 10

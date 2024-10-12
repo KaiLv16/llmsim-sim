@@ -38,7 +38,7 @@ def get_invoke_flows(filename, flow_id):
 
     return all_invoke_flows
 
-# 示例用法：
+
 filename = '../ResNet50-MNIST-pytorch/mix/llm_flow.txt'  # 替换为你的文件名
 flow_id = 0  # 你想查询的流编号
 result = get_invoke_flows(filename, flow_id)
