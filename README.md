@@ -2,6 +2,8 @@
 
 ## 快速使用
 
+首先应该获取 `llmsim-gen` 和 `llmsim-sim` 两个repo，并将前者的文件夹名称重命名为 `ResNet50-MNIST-pytorch/` (TO be fixed)
+
 ### 运行仿真：
 需要用到的文件包括：在上级文件夹中的 `ResNet5-xxxx` 中的 `mix/` 文件夹中的 `llm_flow.txt` 和 `node_mapping.txt`
 
