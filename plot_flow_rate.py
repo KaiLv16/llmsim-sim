@@ -69,7 +69,7 @@ def read_flowid_from_file(filename):
             return None  # 如果i或j超出文件行数范围，返回None
 
 
-if use_pkl == False or not os.path.exists('results/flow_rate.pkl'):
+if use_pkl == False or not os.path.exists('results/flow_send_rate.pkl'):
     with open('mix/output/test_0/test_0_snd_rcv_record_file.txt', 'r') as file:
         for line in file:
             # print(line)
@@ -116,7 +116,7 @@ if use_pkl == False or not os.path.exists('results/flow_rate.pkl'):
 
 
     # 存储数据的字典
-    flow_data = {}
+    # flow_data = {}
 
     # # 读取并解析文件
     # with open('mix/output/test_0/test_0_snd_rcv_record_file.txt', 'r') as file:
@@ -145,55 +145,90 @@ if use_pkl == False or not os.path.exists('results/flow_rate.pkl'):
 
     print(f"min_time: {min_time}, max_time: {max_time}")
 
-    flow_rate = {}
+    flow_send_rate = {}
+    flow_recv_rate = {}
 
     # 这里画的是 data_send
     for flowid_type, data in data_send.items():
         if flowid_type[1] == 'UDP':
-            flow_rate[flowid_type] = np.zeros((max_time - min_time) // time_interval + 1)  # 初始化速率为0
+            flow_send_rate[flowid_type] = np.zeros((max_time - min_time) // time_interval + 1)  # 初始化速率为0
             # print(data['time'])
             for time in data['time']:
                 # 计算当前包属于哪个时间区间
                 index = (time - min_time) // time_interval
-                flow_rate[flowid_type][index] += pkt_size  # 在该时间区间内累加数据包大小
+                flow_send_rate[flowid_type][index] += pkt_size  # 在该时间区间内累加数据包大小
 
-    # 保存 flow_rate 到文件
-    with open('results/flow_rate.pkl', 'wb') as file:
-        pickle.dump(flow_rate, file)
+    # 这里画的是 data_recv
+    for flowid_type, data in data_recv.items():
+        if flowid_type[1] == 'UDP':
+            flow_recv_rate[flowid_type] = np.zeros((max_time - min_time) // time_interval + 1)  # 初始化速率为0
+            # print(data['time'])
+            for time in data['time']:
+                # 计算当前包属于哪个时间区间
+                index = (time - min_time) // time_interval
+                flow_recv_rate[flowid_type][index] += pkt_size  # 在该时间区间内累加数据包大小
+
+    # 保存 flow_send_rate 到文件
+    with open('results/flow_send_rate.pkl', 'wb') as file:
+        pickle.dump(flow_send_rate, file)
+
+    with open('results/flow_recv_rate.pkl', 'wb') as file:
+        pickle.dump(flow_recv_rate, file)
 
 else:
-    # 从文件中读取 flow_rate
-    with open('results/flow_rate.pkl', 'rb') as file:
-        flow_rate = pickle.load(file)
+    # 从文件中读取 flow_send_rate
+    with open('results/flow_send_rate.pkl', 'rb') as file:
+        flow_send_rate = pickle.load(file)
+    
+    # 从文件中读取 flow_recv_rate
+    with open('results/flow_recv_rate.pkl', 'rb') as file:
+        flow_recv_rate = pickle.load(file)
 
 print('aaa')
 
 # 将每个区间的发送数据量转换为发送速率 (Gbps)
-for flowid_type, rate in flow_rate.items():
+for flowid_type, rate in flow_send_rate.items():
     # rate 是比特/纳秒，刚好是 Gbps
-    flow_rate[flowid_type] = flow_rate[flowid_type] / time_interval
+    flow_send_rate[flowid_type] = flow_send_rate[flowid_type] / time_interval
+
+# 将每个区间的发送数据量转换为发送速率 (Gbps)
+for flowid_type, rate in flow_recv_rate.items():
+    # rate 是比特/纳秒，刚好是 Gbps
+    flow_recv_rate[flowid_type] = flow_recv_rate[flowid_type] / time_interval
 
 print('bbb')
 
 # 可选：应用平滑
 # if enable_smoothing:
-#     for flowid, rate in flow_rate.items():
+#     for flowid, rate in flow_send_rate.items():
 #         smooth_rate = np.copy(rate)
 #         for i in range(smoothing_range, len(rate) - smoothing_range):
 #             smooth_rate[i] = np.mean(rate[i-smoothing_range:i+smoothing_range+1])
-#         flow_rate[flowid] = smooth_rate
+#         flow_send_rate[flowid] = smooth_rate
 
 if enable_smoothing:
-    for flowid_type, rate in flow_rate.items():
+    for flowid_type, rate in flow_send_rate.items():
         # smooth_rate = np.copy(rate)
         df = pd.DataFrame(rate)
         df = df.rolling(window=3, center=True).mean()
-        flow_rate[flowid_type] = df.to_numpy()
+        # 先前向填充，再后向填充，防止两端出现nan
+        df_filled = df.fillna(method='ffill').fillna(method='bfill')
+        flow_send_rate[flowid_type] = df_filled.to_numpy().T[0]
+        # print(flow_send_rate[flowid_type])
+    
+    for flowid_type, rate in flow_recv_rate.items():
+        # smooth_rate = np.copy(rate)
+        df = pd.DataFrame(rate)
+        df = df.rolling(window=3, center=True).mean()
+        # 先前向填充，再后向填充，防止两端出现nan
+        df_filled = df.fillna(method='ffill').fillna(method='bfill')
+        flow_recv_rate[flowid_type] = df_filled.to_numpy().T[0]
+        # print(flow_recv_rate[flowid_type])
 
 print('ccc')
 
 flow_list = read_flowid_from_file('config/flow_to_be_plotted.py')
-assert flow_list is not None
+# assert flow_list is not None
 print(flow_list)
 
 args = parse_args()
@@ -201,19 +236,35 @@ args = parse_args()
 # 绘制图表
 plt.figure(figsize=(10, 6))
 
-for flowid_type, rate in flow_rate.items():
+for flowid_type, rate in flow_send_rate.items():
     if flow_list is None or (flow_list is not None and flowid_type[0] in flow_list):
         # 转换为 Gbps
         time_axis = np.arange(len(rate)) * time_interval / 1000000000  # 转换为 s
-        x_max = min(time_axis[-1], args.x_max)
-        x_min = max(time_axis[0],  args.x_min)
-        # x_max = time_axis[-1]
-        # x_min = time_axis[0]
-        mask = (time_axis >= x_min) & (time_axis <= x_max)
+        # x_max = min(time_axis[-1], args.x_max)
+        # x_min = max(time_axis[0],  args.x_min)
+        mask = (time_axis >= args.x_min) & (time_axis <= args.x_max)
         x_sub = time_axis[mask]
         y_sub = rate[mask]
-        label = f'Flow {flowid_type} Sending Rate' if np.max(np.abs(y_sub)) > args.threshold else '_nolegend_'
-        plt.plot(x_sub, y_sub, label=label)
+        print(flowid_type, rate, 'Global max:', max(rate), '; ', y_sub, 'Interval max:', max(y_sub))
+        if len(x_sub) > 0 and len(y_sub) > 0:
+            label = f'Flow {flowid_type} Snd Rate' if np.max(y_sub) > args.threshold else '_nolegend_'
+            plt.plot(x_sub, y_sub, label=label)
+        # plt.plot(time_axis, rate, label=f'Flow {flowid_type} Sending Rate')
+
+for flowid_type, rate in flow_recv_rate.items():
+    if flow_list is None or (flow_list is not None and flowid_type[0] in flow_list):
+        # 转换为 Gbps
+        time_axis = np.arange(len(rate)) * time_interval / 1000000000  # 转换为 s
+        # x_max = min(time_axis[-1], args.x_max)
+        # x_min = max(time_axis[0],  args.x_min)
+        mask = (time_axis >= args.x_min) & (time_axis <= args.x_max)
+        x_sub = time_axis[mask]
+        y_sub = rate[mask]
+        print(flowid_type, rate, 'Global max:', max(rate), '; ', y_sub, 'Interval max:', max(y_sub))
+        if len(x_sub) > 0 and len(y_sub) > 0:
+            label = f'Flow {flowid_type} Rcv Rate' if np.max(y_sub) > args.threshold else '_nolegend_'
+            plt.plot(x_sub, y_sub, label=label)
+        # plt.plot(time_axis, rate, label=f'Flow {flowid_type} Sending Rate')
 
 
 # 设置 x 轴范围
@@ -221,12 +272,12 @@ for flowid_type, rate in flow_rate.items():
 
 plt.xlabel('Time (s)')
 plt.ylabel('Rate (Gbps)')
-plt.title('Total and Effective Sending Rates per Flow')
+plt.title('Sending / Receiving Rates per Flow')
 
 # plt.legend(loc='best')
 
 # 设置图例，并将其放在图片下方
-plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.1), ncol=3)
+plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.1), ncol=4)
 
 # 设置图例，并将其放在图片外
 # plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))

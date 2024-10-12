@@ -171,7 +171,7 @@ def main():
     parser.add_argument('--node_mapping', dest='node_mapping', action='store',
                         default='../ResNet50-MNIST-pytorch/mix/node_mapping', help="Node Mappig file. (default: '../ResNet50-MNIST-pytorch/mix/node_mapping')")
     parser.add_argument('--simnode_mapping_file', dest='simnode_mapping_file', action='store',
-                        default='layerId2nicId', help="SimNode Mappig file. (default: 'layerId2nicId')")
+                        default='layer_Id_to_nic_Id', help="SimNode Mappig file. (default: 'layer_Id_to_nic_Id')")
     parser.add_argument('--cdf', dest='cdf', action='store',
                         default='AliStorage2019', help="the name of the cdf file (default: AliStorage2019)")
     parser.add_argument('--enforce_win', dest='enforce_win', action='store',
