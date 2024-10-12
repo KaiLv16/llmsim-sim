@@ -35,6 +35,7 @@ public:
    * \param pg The PG
    */
   void SetPG (uint16_t pg);
+  void SetFlowId (uint16_t Id);
   void SetSeq(uint32_t seq);
   void SetSport(uint32_t _sport);
   void SetDport(uint32_t _dport);
@@ -49,6 +50,7 @@ public:
    * \return The pg
    */
   uint16_t GetPG () const;
+  uint16_t GetFlowId () const;
   uint32_t GetSeq() const;
   uint16_t GetPort() const;
   uint16_t GetSport() const;
@@ -70,6 +72,7 @@ private:
   uint16_t sport, dport;
   uint16_t flags;
   uint16_t m_pg;
+  uint16_t m_flow_id;
   uint32_t m_seq; // the qbb sequence number.
   IntHeader ih;
   uint32_t m_irn_nack;

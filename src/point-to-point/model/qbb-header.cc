@@ -27,6 +27,10 @@ namespace ns3 {
 	{
 		m_pg = pg;
 	}
+	void qbbHeader::SetFlowId(uint16_t Id)
+	{
+		m_flow_id = Id;
+	}
 
 	void qbbHeader::SetSeq(uint32_t seq)
 	{
@@ -60,6 +64,11 @@ namespace ns3 {
 	uint16_t qbbHeader::GetPG() const
 	{
 		return m_pg;
+	}
+	
+	uint16_t qbbHeader::GetFlowId() const
+	{
+		return m_flow_id;
 	}
 
 	uint32_t qbbHeader::GetSeq() const
@@ -104,7 +113,7 @@ namespace ns3 {
 	}
 	void qbbHeader::Print(std::ostream &os) const
 	{
-		os << "qbb:" << "pg=" << m_pg << ",seq=" << m_seq;
+		os << "qbb:" << "pg=" << m_pg << "flow_id=" << m_flow_id << ",seq=" << m_seq;
 	}
 	uint32_t qbbHeader::GetSerializedSize(void)  const
 	{
@@ -112,7 +121,7 @@ namespace ns3 {
 	}
 	uint32_t qbbHeader::GetBaseSize() {
 		qbbHeader tmp;
-		return sizeof(tmp.sport) + sizeof(tmp.dport) + sizeof(tmp.flags) + sizeof(tmp.m_pg) + sizeof(tmp.m_seq) + sizeof(tmp.m_irn_nack) + sizeof(tmp.m_irn_nack_size);
+		return sizeof(tmp.sport) + sizeof(tmp.dport) + sizeof(tmp.flags) + sizeof(tmp.m_pg) + sizeof(tmp.m_flow_id) + sizeof(tmp.m_seq) + sizeof(tmp.m_irn_nack) + sizeof(tmp.m_irn_nack_size);
 	}
 	void qbbHeader::Serialize(Buffer::Iterator start)  const
 	{
@@ -121,6 +130,7 @@ namespace ns3 {
 		i.WriteU16(dport);
 		i.WriteU16(flags);
 		i.WriteU16(m_pg);
+		i.WriteU16(m_flow_id);
 		i.WriteU32(m_seq);
 		i.WriteU32(m_irn_nack);
 		i.WriteU16(m_irn_nack_size);
@@ -136,6 +146,7 @@ namespace ns3 {
 		dport = i.ReadU16();
 		flags = i.ReadU16();
 		m_pg = i.ReadU16();
+		m_flow_id = i.ReadU16();
 		m_seq = i.ReadU32();
 		m_irn_nack = i.ReadU32();
 		m_irn_nack_size = i.ReadU16();

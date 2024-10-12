@@ -160,6 +160,7 @@ void CustomHeader::Serialize (Buffer::Iterator start) const{
 		  i.WriteHtonU16 (0);
 		  // SeqTsHeader
 		  i.WriteHtonU32 (udp.seq);
+		  i.WriteHtonU16 (udp.flow_id);
 		  i.WriteHtonU16 (udp.pg);
 		  udp.ih.Serialize(i);
 	  }else if (l3Prot == 0xFF){ // CNP
@@ -173,6 +174,7 @@ void CustomHeader::Serialize (Buffer::Iterator start) const{
 		  i.WriteU16(ack.dport);
 		  i.WriteU16(ack.flags);
 		  i.WriteU16(ack.pg);
+		  i.WriteU16(ack.flow_id);
 		  i.WriteU32(ack.seq);
 		  i.WriteU32(ack.irnNack);
 		  i.WriteU16(ack.irnNackSize);
@@ -189,6 +191,8 @@ uint32_t
 CustomHeader::Deserialize (Buffer::Iterator start)
 {
   Buffer::Iterator i = start;
+
+//   printf("\nParse Packet start\n");
 
   // L2
   int l2Size = 0;
@@ -294,7 +298,8 @@ CustomHeader::Deserialize (Buffer::Iterator start)
 
 		  // SeqTsHeader
 		  udp.seq = i.ReadNtohU32 ();
-		  udp.pg =  i.ReadNtohU16 ();
+		  udp.flow_id = i.ReadNtohU16 ();
+		  udp.pg = i.ReadNtohU16 ();
 		  if (getInt)
 			  udp.ih.Deserialize(i);
 
@@ -311,6 +316,7 @@ CustomHeader::Deserialize (Buffer::Iterator start)
 		  ack.dport = i.ReadU16();
 		  ack.flags = i.ReadU16();
 		  ack.pg = i.ReadU16();
+		  ack.flow_id = i.ReadU16();
 		  ack.seq = i.ReadU32();
 		  ack.irnNack = i.ReadU32();
 		  ack.irnNackSize = i.ReadU16();
@@ -325,6 +331,7 @@ CustomHeader::Deserialize (Buffer::Iterator start)
 	  }
   }
 
+//   printf("\nParse Packet end\n");
   return l2Size + l3Size + l4Size;
 }
 
@@ -333,11 +340,11 @@ uint8_t CustomHeader::GetIpv4EcnBits (void) const{
 }
 
 uint32_t CustomHeader::GetAckSerializedSize(void){
-	return sizeof(ack.sport) + sizeof(ack.dport) + sizeof(ack.flags) + sizeof(ack.pg) + sizeof(ack.seq) + IntHeader::GetStaticSize();
+	return sizeof(ack.sport) + sizeof(ack.dport) + sizeof(ack.flags) + sizeof(ack.pg) + sizeof(ack.flow_id) + sizeof(ack.seq) + IntHeader::GetStaticSize();
 }
 
 uint32_t CustomHeader::GetUdpHeaderSize(void){
-	return 8 + sizeof(udp.pg) + sizeof(udp.seq) + IntHeader::GetStaticSize();
+	return 8 + sizeof(udp.pg) + sizeof(udp.seq) + sizeof(udp.flow_id) + IntHeader::GetStaticSize();
 }
 
 uint32_t CustomHeader::GetStaticWholeHeaderSize(void){

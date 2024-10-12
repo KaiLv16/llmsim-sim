@@ -301,6 +301,7 @@ int RdmaHw::ReceiveUdp(Ptr<Packet> p, CustomHeader &ch) {
     uint8_t ecnbits = ch.GetIpv4EcnBits();
 
     uint32_t payload_size = p->GetSize() - ch.GetSerializedSize();
+    // printf("receive packet size %d.\n", payload_size);
 
     // find corresponding rx queue pair
     Ptr<RdmaRxQueuePair> rxQp =
@@ -339,6 +340,7 @@ int RdmaHw::ReceiveUdp(Ptr<Packet> p, CustomHeader &ch) {
         qbbHeader seqh;
         seqh.SetSeq(rxQp->ReceiverNextExpectedSeq);
         seqh.SetPG(ch.udp.pg);
+        seqh.SetFlowId(ch.udp.flow_id);
         seqh.SetSport(ch.udp.dport);
         seqh.SetDport(ch.udp.sport);
         seqh.SetIntHeader(ch.udp.ih);
@@ -531,9 +533,9 @@ int RdmaHw::ReceiveAck(Ptr<Packet> p, CustomHeader &ch) {
     if (!qp->IsFinished() && qp->GetOnTheFly() > 0) {
         if (qp->m_retransmit.IsRunning()) {
             qp->m_retransmit.Cancel();
-            std::cout << "qp->m_retransmit.Cancel()" << std::endl;
+            // std::cout << "qp->m_retransmit.Cancel()" << std::endl;
         }
-        std::cout << "RdmaHw::ReceiveAck() calls GetRto()" <<std::endl;
+        // std::cout << "RdmaHw::ReceiveAck() calls GetRto()" <<std::endl;
         Time qp_mtu = qp->GetRto(m_mtu);
         qp->m_retransmit = Simulator::Schedule(qp_mtu, &RdmaHw::HandleTimeout, this, qp,
                                                qp_mtu);
@@ -746,7 +748,10 @@ void RdmaHw::AddTableEntry(Ipv4Address &dstAddr, uint32_t intf_idx) {
     m_rtTable[dip].push_back(intf_idx);
 }
 
-void RdmaHw::ClearTable() { m_rtTable.clear(); }
+void RdmaHw::ClearTable() {
+    printf("RdmaHw: node %u Clear Table\n", m_node->GetId());
+    m_rtTable.clear();
+}
 
 void RdmaHw::RedistributeQp() {
     // clear old qpGrp
@@ -781,9 +786,10 @@ Ptr<Packet> RdmaHw::GetNxtPacket(Ptr<RdmaQueuePair> qp) {
     SeqTsHeader seqTs;
     seqTs.SetSeq(seq);
     seqTs.SetPG(qp->m_pg);
+    seqTs.SetFlowId(qp->m_flow_id);
     p->AddHeader(seqTs);
     // add udp header
-    UdpHeader udpHeader;
+    UdpHeader udpHeader; 
     udpHeader.SetDestinationPort(qp->dport);
     udpHeader.SetSourcePort(qp->sport);
     p->AddHeader(udpHeader);
@@ -860,7 +866,7 @@ void RdmaHw::PktSent(Ptr<RdmaQueuePair> qp, Ptr<Packet> pkt, Time interframeGap)
         if (ch.l3Prot == 0x11) {  // UDP
             // Update Timer
             if (qp->m_retransmit.IsRunning()) qp->m_retransmit.Cancel();
-            std::cout << "RdmaHw::PktSent() calls GetRto()" <<std::endl;
+            // std::cout << "RdmaHw::PktSent() calls GetRto()" <<std::endl;
             Time qp_mtu = qp->GetRto(m_mtu);
             qp->m_retransmit = Simulator::Schedule(qp_mtu, &RdmaHw::HandleTimeout, this,
                                                    qp, qp_mtu);

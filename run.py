@@ -14,6 +14,8 @@ import os
 import argparse
 from datetime import date
 
+from cut_output_file import * 
+
 # randomID
 random.seed(datetime.now())
 MAX_RAND_RANGE = 1000000000
@@ -22,6 +24,8 @@ MAX_RAND_RANGE = 1000000000
 config_template = """TOPOLOGY_FILE config/{topo}.txt  ~
 FLOW_FILE config/{flow}.txt                           ~
 FLOW_RELATIONAL {flow_relation}                       newly_add
+NODE_MAPPING config/{node_mapping}.txt                newly_add
+SIM_NODE_MAPPING_FILE config/{simnode_mapping_file}.txt   newly_add
 IS_SPRAY {is_spray}                                   newly_add
 
 FLOW_INPUT_FILE mix/output/{id}/{id}_in.txt           new
@@ -164,6 +168,10 @@ def main():
                         default='null', help="the name of the flow file. If this is not 'null', the program will use this given flow file. (default: 'null')")
     parser.add_argument('--flow_relation', dest='flow_relation', action='store',
                         default=0, help="If this is 1, read flow file from relational flow txt. (default: '0')")
+    parser.add_argument('--node_mapping', dest='node_mapping', action='store',
+                        default='../ResNet50-MNIST-pytorch/mix/node_mapping', help="Node Mappig file. (default: '../ResNet50-MNIST-pytorch/mix/node_mapping')")
+    parser.add_argument('--simnode_mapping_file', dest='simnode_mapping_file', action='store',
+                        default='layerId2nicId', help="SimNode Mappig file. (default: 'layerId2nicId')")
     parser.add_argument('--cdf', dest='cdf', action='store',
                         default='AliStorage2019', help="the name of the cdf file (default: AliStorage2019)")
     parser.add_argument('--enforce_win', dest='enforce_win', action='store',
@@ -205,6 +213,8 @@ def main():
     topo = args.topo    # 生成拓扑的文件名
     flow = args.flow_file_name # 直接读取的文件名
     flow_relation = int(args.flow_relation)
+    node_mapping = args.node_mapping
+    simnode_mapping_file = args.simnode_mapping_file
     enforce_win = args.enforce_win
     cdf = args.cdf      # 流分布的文件名
     flowgen_start_time = FLOWGEN_DEFAULT_TIME  # default: 2.0
@@ -261,7 +271,7 @@ def main():
                 load=hostload, cdf=cdf, n_host=n_host))
     else:  # make the input traffic file
         if (args.flow_file_name != 'null'):
-            print("You specified an input flow file name, but it cannot be found under /config/ folder. Exit...")
+            print(f"You specified an input flow file name {args.flow_file_name}, but it cannot be found under /config/ folder. Exit...")
             exit(1)
         print("Generate a input traffic file...")
         if (is_spray):
@@ -411,7 +421,7 @@ def main():
 
             hprio = args.high_prio
             
-            config = config_template.format(id=config_ID, topo=topo, flow=flow, flow_relation=flow_relation,
+            config = config_template.format(id=config_ID, topo=topo, flow=flow, flow_relation=flow_relation, node_mapping=node_mapping, simnode_mapping_file=simnode_mapping_file,
                                             is_spray=is_spray,
                                             qlen_mon_start=qlen_mon_start, qlen_mon_end=qlen_mon_end, flowgen_start_time=flowgen_start_time,
                                             flowgen_stop_time=flowgen_stop_time, sw_monitoring_interval=sw_monitoring_interval,
@@ -456,7 +466,7 @@ def main():
             ewma_gain = 0.00390625
             hprio = args.high_prio
 
-            config = config_template.format(id=config_ID, topo=topo, flow=flow, flow_relation=flow_relation,
+            config = config_template.format(id=config_ID, topo=topo, flow=flow, flow_relation=flow_relation, node_mapping=node_mapping, simnode_mapping_file=simnode_mapping_file,
                                             is_spray=is_spray,
                                             qlen_mon_start=qlen_mon_start, qlen_mon_end=qlen_mon_end, flowgen_start_time=flowgen_start_time,
                                             flowgen_stop_time=flowgen_stop_time, sw_monitoring_interval=sw_monitoring_interval,
@@ -491,7 +501,7 @@ def main():
             hprio = 0       # hpcc代码里写的
             # config_name = "mix/config_%s_%s_%s%s.txt"%(topo, trace, cc, failure)
             # config = config_template.format(bw=bw, trace=trace, topo=topo, cc=cc, mode=3, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=1, u_tgt=u_tgt, mi=mi, int_multi=int_multi, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=0, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr)
-            config = config_template.format(id=config_ID, topo=topo, flow=flow, flow_relation=flow_relation,
+            config = config_template.format(id=config_ID, topo=topo, flow=flow, flow_relation=flow_relation, node_mapping=node_mapping, simnode_mapping_file=simnode_mapping_file,
                                             is_spray=is_spray,
                                             qlen_mon_start=qlen_mon_start, qlen_mon_end=qlen_mon_end, flowgen_start_time=flowgen_start_time,
                                             flowgen_stop_time=flowgen_stop_time, sw_monitoring_interval=sw_monitoring_interval,
@@ -519,7 +529,7 @@ def main():
             hprio = args.high_prio
             hprio = 0       # hpcc代码里写的
             # config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=8, t_alpha=1, t_dec=4, t_inc=300, g=0.0625, ai=ai, hai=hai, dctcp_ai=dctcp_ai, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=0, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr)
-            config = config_template.format(id=config_ID, topo=topo, flow=flow, flow_relation=flow_relation,
+            config = config_template.format(id=config_ID, topo=topo, flow=flow, flow_relation=flow_relation, node_mapping=node_mapping, simnode_mapping_file=simnode_mapping_file,
                                             is_spray=is_spray,
                                             qlen_mon_start=qlen_mon_start, qlen_mon_end=qlen_mon_end, flowgen_start_time=flowgen_start_time,
                                             flowgen_stop_time=flowgen_stop_time, sw_monitoring_interval=sw_monitoring_interval,
@@ -542,7 +552,7 @@ def main():
             int_multi = 1
             hprio = args.high_prio
             # config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=7, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=0, vwin=0, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=1, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr)
-            config = config_template.format(id=config_ID, topo=topo, flow=flow, flow_relation=flow_relation,
+            config = config_template.format(id=config_ID, topo=topo, flow=flow, flow_relation=flow_relation, node_mapping=node_mapping, simnode_mapping_file=simnode_mapping_file,
                                             is_spray=is_spray,
                                             qlen_mon_start=qlen_mon_start, qlen_mon_end=qlen_mon_end, flowgen_start_time=flowgen_start_time,
                                             flowgen_stop_time=flowgen_stop_time, sw_monitoring_interval=sw_monitoring_interval,
@@ -565,7 +575,7 @@ def main():
             int_multi = 1
             hprio = args.high_prio
             # config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=7, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=1, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr)
-            config = config_template.format(id=config_ID, topo=topo, flow=flow, flow_relation=flow_relation,
+            config = config_template.format(id=config_ID, topo=topo, flow=flow, flow_relation=flow_relation, node_mapping=node_mapping, simnode_mapping_file=simnode_mapping_file,
                                             is_spray=is_spray,
                                             qlen_mon_start=qlen_mon_start, qlen_mon_end=qlen_mon_end, flowgen_start_time=flowgen_start_time,
                                             flowgen_stop_time=flowgen_stop_time, sw_monitoring_interval=sw_monitoring_interval,
@@ -659,4 +669,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+    # 调用函数
+    save_first_xxx_lines(100000, 'mix/output/test_0/test_0_snd_rcv_record_file')
 

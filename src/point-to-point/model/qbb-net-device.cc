@@ -230,6 +230,22 @@ TypeId QbbNetDevice::GetTypeId(void) {
     return tid;
 }
 
+inline int get_pkt_status(uint32_t l3Prot){
+    int pkt_type = -1;
+    if (l3Prot == 0x11) {  // UDP
+        pkt_type = 0;
+    } else if (l3Prot == 0xFF) {  // CNP
+        pkt_type = 1;
+    } else if (l3Prot == 0xFD) {  // NACK
+        pkt_type = 2;
+    } else if (l3Prot == 0xFC) {  // ACK
+        pkt_type = 3;
+    } else if (l3Prot == 0xFE) {  // PFC
+        pkt_type = 4;
+    }
+    return pkt_type;
+}
+
 QbbNetDevice::QbbNetDevice() {
     NS_LOG_FUNCTION(this);
     m_ecn_source = new std::vector<ECNAccount>;
@@ -268,8 +284,11 @@ void QbbNetDevice::DequeueAndTransmit(void) {
         if (qIndex != -1024) {
             if (qIndex == -1) {  // high prio
                 p = m_rdmaEQ->DequeueQindex(qIndex);        // 生成数据包
+                CustomHeader ch(CustomHeader::L2_Header | CustomHeader::L3_Header | CustomHeader::L4_Header);
+                ch.getInt = 1;  // parse INT header
+                p->PeekHeader(ch);
                 m_traceDequeue(p, 0);
-                m_traceSndRcv(1, 1, p->GetSize(), -1, -1);
+                m_traceSndRcv(1, get_pkt_status(ch.l3Prot), p->GetSize(), ch.udp.flow_id, ch.udp.seq);
                 TransmitStart(p);
                 return;
             }
@@ -279,10 +298,10 @@ void QbbNetDevice::DequeueAndTransmit(void) {
             CustomHeader ch(CustomHeader::L2_Header | CustomHeader::L3_Header | CustomHeader::L4_Header);
             ch.getInt = 1;  // parse INT header
             p->PeekHeader(ch);
-            uint32_t seq = ch.udp.seq;
             // transmit
             m_traceQpDequeue(p, lastQp);
-            m_traceSndRcv(1, 0, p->GetSize(), lastQp->m_flow_id, seq);
+            // m_traceSndRcv(1, 0, p->GetSize(), lastQp->m_flow_id, seq);
+            m_traceSndRcv(1, get_pkt_status(ch.l3Prot), p->GetSize(), ch.udp.flow_id, ch.udp.seq);
             TransmitStart(p);
             
             // update for the next avail time
@@ -325,7 +344,10 @@ void QbbNetDevice::DequeueAndTransmit(void) {
                 p->RemovePacketTag(t);
             }
             m_traceDequeue(p, qIndex);
-            m_traceSndRcv(1, 0, p->GetSize(), -1, -1);
+            CustomHeader ch(CustomHeader::L2_Header | CustomHeader::L3_Header | CustomHeader::L4_Header);
+            ch.getInt = 1;  // parse INT header
+            p->PeekHeader(ch);
+            m_traceSndRcv(1, get_pkt_status(ch.l3Prot), p->GetSize(), ch.udp.flow_id, ch.udp.seq);
             TransmitStart(p);
             return;
         } else {  // No queue can deliver any packet
@@ -380,7 +402,7 @@ void QbbNetDevice::Receive(Ptr<Packet> packet) {
     ch.getInt = 1;  // parse INT header
     packet->PeekHeader(ch);
     if (ch.l3Prot == 0xFE) {  // PFC
-        m_traceSndRcv(0, 1, packet->GetSize(), -1, -1);
+        m_traceSndRcv(0, get_pkt_status(ch.l3Prot), packet->GetSize(), ch.udp.flow_id, ch.udp.seq);
         if (!m_qbbEnabled) return;
         unsigned qIndex = ch.pfc.qIndex;
         // std::cerr << "PFC!!" << std::endl;
@@ -396,7 +418,7 @@ void QbbNetDevice::Receive(Ptr<Packet> packet) {
             Resume(qIndex);
         }
     } else {                              // non-PFC packets (data, ACK, NACK, CNP...)
-        m_traceSndRcv(0, 0, packet->GetSize(), -1, -1);
+        m_traceSndRcv(0, get_pkt_status(ch.l3Prot), packet->GetSize(), ch.udp.flow_id, ch.udp.seq);
         if (m_node->GetNodeType() > 0) {  // switch
             packet->AddPacketTag(FlowIdTag(m_ifIndex));
             m_node->SwitchReceiveFromDevice(this, packet, ch);
@@ -410,6 +432,7 @@ void QbbNetDevice::Receive(Ptr<Packet> packet) {
     }
     return;
 }
+
 
 bool QbbNetDevice::Send(Ptr<Packet> packet, const Address &dest, uint16_t protocolNumber) {
     NS_ASSERT_MSG(false, "QbbNetDevice::Send not implemented yet\n");

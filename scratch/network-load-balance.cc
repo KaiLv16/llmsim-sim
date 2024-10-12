@@ -115,7 +115,7 @@ FILE *conn_output = NULL;           //
 FILE *routing_table_output = NULL;
 FILE *snd_rcv_output = NULL;
 
-std::string data_rate, link_delay, topology_file, flow_file;
+std::string data_rate, link_delay, topology_file, flow_file, node_mapping, simnode_mapping_file;
 uint32_t is_flow_relational = 0;
 std::string flow_input_file = "flow.txt";   // 这个事实上没有用到。调度之后的流才会写进到这个file里面
 std::string fct_output_file = "fct.txt";
@@ -209,7 +209,7 @@ std::map<uint32_t, std::vector<uint32_t>> torId2DownlinkIf;
 map<uint32_t, map<uint32_t, uint32_t>> nodeId2NodeIdConnNum;
 
 // input files
-std::ifstream topof, flowf;
+std::ifstream topof, flowf, mappingf;
 
 NodeContainer n;                         // node container
 std::vector<Ipv4Address> serverAddress;  // server address
@@ -234,21 +234,25 @@ uint32_t flow_num = 0;
 /*------  parsing flows and their dependencies  -----*/
 struct Flow {
     uint32_t id;
-    uint32_t pg; // 新增优先级字段
+    int pg; // 新增优先级字段
     uint32_t src;
     uint32_t dst;
-    uint32_t size;
-    uint64_t lat;
+    int size;
+    uint32_t lat;
     vector<uint32_t> dependFlows;
     vector<uint32_t> invokeFlows;
     bool sent;
+    
+    Flow() {
+        size = -1;
+    }
 
     void print() {
-        printf("id=%u priority=%u src=%u dst=%u size=%u lat=%lu lat=dep=[", id, pg, src, dst, size, lat);
+        printf("id=%u priority=%d src=%u dst=%u size=%d lat=%u dep_flow=[", id, pg, src, dst, size, lat);
         for (int i = 0; i < dependFlows.size(); i++) {
             printf("%u ", dependFlows[i]);
         }
-        printf("] invoke=[");
+        printf("] invoke_flow=[");
         for (int i = 0; i < invokeFlows.size(); i++) {
             printf("%u ", invokeFlows[i]);
         }
@@ -311,6 +315,7 @@ void ParseRelationalFlowFile(string fileName) {
     // flowf >> flow_num;
     getline(file, line);
     flow_num = stoi(line);
+    printf("Total flow num: %d\n", flow_num);
 
     uint32_t cur_flow_num = 0;
     // 逐行解析每条流的信息
@@ -319,6 +324,7 @@ void ParseRelationalFlowFile(string fileName) {
         istringstream iss(line);
         Flow flow;
         string dependStr, invokeStr;
+        float fsize;
 
         // 解析流ID、源、目的和大小
         iss >> flow.id;
@@ -328,10 +334,18 @@ void ParseRelationalFlowFile(string fileName) {
         iss >> flow.src;
         iss.ignore(6);  // 跳过 ", dst="
         iss >> flow.dst;
-        iss.ignore(7);  // 跳过 ", size="
-        iss >> flow.size;
+        // 检查是否有大小字段
+        if (line.find("size=") != string::npos) {
+            iss.ignore(7);  // 跳过 ", size="
+            iss >> fsize;
+            flow.size = (int)fsize;
+        } else {
+            flow.size = -1; // 或者设定为一个默认值
+        }
         iss.ignore(6);  // 跳过 ", dst="
-        iss >> flow.lat;
+        float latency;
+        iss >> latency;
+        flow.lat = (int)(latency * 1000000);
         iss.ignore(15); // 跳过 ", depend_flow=["
         getline(iss, dependStr, ']');
         iss.ignore(15); // 跳过 ", invoke_flow=["
@@ -343,6 +357,7 @@ void ParseRelationalFlowFile(string fileName) {
         while (getline(depStream, dep, ',')) {
             trim(dep); // 去除空格
             if (!dep.empty()) {
+                // cout << dep << " ";
                 flow.dependFlows.push_back(stoi(dep));
             }
         }
@@ -356,9 +371,11 @@ void ParseRelationalFlowFile(string fileName) {
                 flow.invokeFlows.push_back(stoi(inv));
             }
         }
+        if (cur_flow_num < 40)
+            flow.print();
 
-        assert(n.Get(flow.src)->GetNodeType() == 0 &&
-               n.Get(flow.dst)->GetNodeType() == 0);
+        // assert(n.Get(flow.src)->GetNodeType() == 0 &&
+            //    n.Get(flow.dst)->GetNodeType() == 0);
 
         // flow.print();
 
@@ -375,6 +392,79 @@ void ParseRelationalFlowFile(string fileName) {
     }
 }
 
+map<uint32_t, uint32_t> vnode2node;     // 从node_mapping文件中解析的
+void ParseNodeMapping(string filename) {
+    ifstream infile(filename);
+    string line;
+
+    // 检查文件是否成功打开
+    if (!infile.is_open()) {
+        cerr << "无法打开文件: " << filename << endl;
+        return;
+    }
+
+    // 逐行读取文件
+    while (getline(infile, line)) {
+        uint32_t key, value=-1;
+        char arrow; // 用于读取 '->' 中的字符
+
+        // 使用字符串流解析每一行
+        stringstream ss(line);
+        ss >> key >> arrow >> arrow >> value; // 读取key和value
+
+        // 存储到map中
+        vnode2node[key] = value;
+    }
+    
+    // // 打印结果以验证
+    // for (const auto& pair : vnode2node) {
+    //     cout << "vnode: " << pair.first << ", node: " << pair.second << endl;
+    // }
+
+    infile.close(); // 关闭文件
+}
+
+
+map<uint32_t, uint32_t> node2phynode;   // 仿真中进行映射的
+void DoNodeSimulationMapping(const std::string& filename) {
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        std::cerr << "无法打开文件: " << filename << std::endl;
+        return;
+    }
+
+    std::string line;
+    int lineCount;
+    
+    // 读取行数
+    if (std::getline(file, line)) {
+        lineCount = std::stoi(line);
+    } else {
+        std::cerr << "无法读取行数" << std::endl;
+        return;
+    }
+
+    // 读取每一行
+    for (int i = 0; i < lineCount; ++i) {
+        if (std::getline(file, line)) {
+            std::istringstream iss(line);
+            uint32_t node, phynode;
+            char comma; // 用于读取逗号
+            
+            if (iss >> node >> comma >> phynode) {
+                node2phynode[node] = phynode; // 保存映射关系
+            } else {
+                std::cerr << "格式错误: " << line << std::endl;
+            }
+        } else {
+            std::cerr << "读取行失败或行数不足" << std::endl;
+            break;
+        }
+    }
+    
+    file.close();
+}
+
 void RelationalFlowStart(uint32_t flowid);
 void RelationalFlowEnd(uint32_t flowid);
 void ScheduleFlowRelational();
@@ -382,37 +472,49 @@ void ScheduleFlowRelational();
 void RelationalFlowStart(uint32_t flowid) {
     NS_LOG_DEBUG("Schedule RelationalFlow at " << Simulator::Now());
     Flow& currentFlow = flowMap[flowid];
-    std::cerr << Simulator::Now() << " Sending flow " << currentFlow.id << " : node " << currentFlow.src << " -> node " << currentFlow.dst<< std::endl;
 
     uint32_t pg, src, dst, sport, dport, maxPacketCount, target_len;
     pg = currentFlow.pg;
-    src = currentFlow.src;
-    dst = currentFlow.dst;
+    // src = currentFlow.src;
+    // dst = currentFlow.dst;
+    src = node2phynode[vnode2node[currentFlow.src]];
+    dst = node2phynode[vnode2node[currentFlow.dst]];
 
-    // src port
-    sport = portNumber[src];  // get a new port number
-    portNumber[src] = portNumber[src] + 1;
+    if (pg == 3) {
+        std::cerr << Simulator::Now() << " Sending flow " << currentFlow.id << 
+        ": node " << currentFlow.src << " (" << src << ") -> node " << currentFlow.dst << " (" << dst << "), size=" << currentFlow.size << std::endl;
+        if (src == dst) {
+            std::cerr << "\nSRC node == DST node!\n\n";
+        }
+        // src port
+        sport = portNumber[src];  // get a new port number
+        portNumber[src] = portNumber[src] + 1;
 
-    // dst port
-    dport = dportNumber[dst];
-    dportNumber[dst] = dportNumber[dst] + 1;
+        // dst port
+        dport = dportNumber[dst];
+        dportNumber[dst] = dportNumber[dst] + 1;
+        target_len = currentFlow.size;  // this is actually not packet-count, but bytes
+        // if (target_len == 0) {
+        //     target_len = 1;
+        // }
+        // 没变
+        RdmaClientHelper clientHelper(
+            pg, serverAddress[src], serverAddress[dst], sport, dport, target_len,
+            has_win ? (global_t == 1 ? maxBdp : pairBdp[n.Get(src)][n.Get(dst)]) : 0,
+            global_t == 1 ? maxRtt : pairRtt[n.Get(src)][n.Get(dst)]);
+            
+        clientHelper.SetAttribute("StatFlowID", IntegerValue(currentFlow.id));
 
-    target_len = currentFlow.size;  // this is actually not packet-count, but bytes
-    // if (target_len == 0) {
-    //     target_len = 1;
-    // }
-
-    // 没变
-    RdmaClientHelper clientHelper(
-        pg, serverAddress[src], serverAddress[dst], sport, dport, target_len,
-        has_win ? (global_t == 1 ? maxBdp : pairBdp[n.Get(src)][n.Get(dst)]) : 0,
-        global_t == 1 ? maxRtt : pairRtt[n.Get(src)][n.Get(dst)]);
-        
-    clientHelper.SetAttribute("StatFlowID", IntegerValue(currentFlow.id));
-
-    ApplicationContainer appCon = clientHelper.Install(n.Get(src));  // SRC，开始调度流
-    appCon.Start(Seconds(Time(0)));
-    appCon.Stop(Seconds(100.0));            // 新增
+        ApplicationContainer appCon = clientHelper.Install(n.Get(src));  // SRC，开始调度流
+        appCon.Start(Seconds(Time(0)));
+        appCon.Stop(Seconds(100.0));            // 新增
+    }
+    else {   // 处理 Dep
+        std::cerr << Simulator::Now() << " dealing dep " << currentFlow.id << 
+            ": node " << currentFlow.src << " (" << src << ") -> node " << currentFlow.dst << " (" << dst << ")" << std::endl;
+        Simulator::Schedule(MicroSeconds(currentFlow.lat), &RelationalFlowEnd, currentFlow.id);
+        // Simulator::Schedule(MicroSeconds(0), &RelationalFlowEnd, currentFlow.id);   // 时延已经在 ScheduleFlowRelational() 加过了
+    }
 
     // this is only for test. the really scheduling should be done @qp_finish()
     // Simulator::Schedule(NanoSeconds(currentFlow.size * 8), &RelationalFlowEnd, flowid);
@@ -422,15 +524,19 @@ void RelationalFlowEnd(uint32_t flowid) {
     Flow& currentFlow = flowMap[flowid];
     // 标记该流已发送
     currentFlow.sent = true;
-    std::cerr << Simulator::Now() << " Flow " << currentFlow.id << " send Finish" << std::endl;
+    string ftype = (currentFlow.pg == -1)? " Dep " : " Flow ";
+    std::cerr << Simulator::Now() << ftype << currentFlow.id << " Finish. ";
     // 处理 invoke_flow 中的流，将其依赖关系减1
     for (uint32_t invokedFlowId : currentFlow.invokeFlows) {
         dependencies[invokedFlowId]--;
         if (dependencies[invokedFlowId] == 0) {
             readyQueue.push(invokedFlowId);
-            std::cerr << Simulator::Now() << " Flow " << invokedFlowId << " becomes Ready." << std::endl;
+            Flow& newFlow = flowMap[invokedFlowId];
+            string ftype2 = (newFlow.pg == -1)? "Dep " : "Flow ";
+            std::cerr << ftype2 << invokedFlowId << " becomes Ready. ";
         }
     }
+    std::cerr << std::endl;
     ScheduleFlowRelational();
 }
 
@@ -439,7 +545,8 @@ void ScheduleFlowRelational() {
         uint32_t currentFlowId = readyQueue.front();
         readyQueue.pop();
         Flow& currentFlow = flowMap[currentFlowId];
-        Simulator::Schedule(NanoSeconds(currentFlow.lat), &RelationalFlowStart, currentFlowId);
+        // Simulator::Schedule(MicroSeconds(currentFlow.lat), &RelationalFlowStart, currentFlowId);
+        Simulator::Schedule(MicroSeconds(0), &RelationalFlowStart, currentFlowId);
         // RelationalFlowStart(currentFlowId);
     }
 }
@@ -833,19 +940,37 @@ void record_send(FILE *fout, Ptr<QbbNetDevice> dev, uint32_t type) {
             dev->GetNode()->GetNodeType(), dev->GetIfIndex(), type);
 }
 
+
+inline const char* getPriorityString(int pkt_type) {
+    switch (pkt_type) {
+        case 0:
+            return "UDP";
+        case 1:
+            return "CNP";
+        case 2:
+            return "NACK";
+        case 3:
+            return "ACK";
+        case 4:
+            return "PFC";
+        default:
+            return "Undefined";
+    }
+}
 /**
  * @brief record a send/recv event. 0: recv, 1: send; size: pkt_size
  */
-void snd_rcv_record(FILE *fout, Ptr<QbbNetDevice> dev, uint32_t rcv_snd_type, uint32_t pkt_type, uint32_t pkt_size, 
-                    uint32_t flowid=-1, uint32_t seq=-1) {
+void snd_rcv_record(FILE *fout, Ptr<QbbNetDevice> dev, 
+                uint32_t rcv_snd_type, uint32_t pkt_type, uint32_t pkt_size, int flowid=-1, int seq=-1) {
     // time, nodeID, nodeType, Interface's Idx, 0:resume, 1:pause
-    fprintf(fout, "%lu: %s %u NIC %u %s a %s pkt. size=%u flowid=%u seq=%u\n", 
+    fprintf(fout, "%lu: %s %u NIC %u %s a %s pkt. size=%u flowid=%d seq=%d\n", 
             Simulator::Now().GetTimeStep(), 
             (dev->GetNode()->GetNodeType() == 0) ? " host  " : "switch ", 
             dev->GetNode()->GetId(),
             dev->GetIfIndex(), 
+            // 下面是动态填充的
             (rcv_snd_type == 0) ? " recv " : " send ",
-            (pkt_type == 0) ? "" : " high prio ",
+            getPriorityString(pkt_type),
             pkt_size,
             flowid,
             seq);
@@ -1152,6 +1277,18 @@ int main(int argc, char *argv[]) {
                 conf >> v;
                 is_flow_relational = v;
                 std::cerr << "FLOW_RELATIONAL\t\t\t" << is_flow_relational << "\n";
+            }
+            if (key.compare("NODE_MAPPING") == 0) {
+                std::string v;
+                conf >> v;
+                node_mapping = v;
+                std::cerr << "NODE_MAPPING\t\t\t" << node_mapping << "\n";
+            }
+            if (key.compare("SIM_NODE_MAPPING_FILE") == 0) {
+                std::string v;
+                conf >> v;
+                simnode_mapping_file = v;
+                std::cerr << "SIM_NODE_MAPPING_FILE\t\t\t" << simnode_mapping_file << "\n";
             }
              else if (key.compare("CNP_OUTPUT_FILE") == 0) {
                 std::string v;
@@ -2240,10 +2377,13 @@ int main(int argc, char *argv[]) {
         printf("aaaaa: %s\n", flow_file.c_str());
         fflush(stdout);
         ParseRelationalFlowFile(flow_file);
+        ParseNodeMapping(node_mapping);
+        DoNodeSimulationMapping(simnode_mapping_file);
         // 打印 flowMap, dependencies 和 readyQueue
-        PrintFlowMap();
-        PrintDependencies();
+        // PrintFlowMap();
+        // PrintDependencies();
         PrintReadyQueue();
+
         // 调度并发送流
         Simulator::Schedule(Seconds(2.0), &ScheduleFlowRelational);
     }

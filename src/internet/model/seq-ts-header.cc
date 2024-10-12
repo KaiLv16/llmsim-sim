@@ -59,6 +59,17 @@ SeqTsHeader::GetPG (void) const
 	return m_pg;
 }
 
+void
+SeqTsHeader::SetFlowId (uint16_t Id)
+{
+	m_flow_id = Id;
+}
+uint16_t
+SeqTsHeader::GetFlowId (void) const
+{
+	return m_flow_id;
+}
+
 Time
 SeqTsHeader::GetTs (void) const
 {
@@ -93,7 +104,7 @@ SeqTsHeader::GetSerializedSize (void) const
 	return GetHeaderSize();
 }
 uint32_t SeqTsHeader::GetHeaderSize(void){
-	return 6 + IntHeader::GetStaticSize();
+	return 8 + IntHeader::GetStaticSize();
 }
 
 void
@@ -101,6 +112,7 @@ SeqTsHeader::Serialize (Buffer::Iterator start) const
 {
   Buffer::Iterator i = start;
   i.WriteHtonU32 (m_seq);
+  i.WriteHtonU16 (m_flow_id);
   i.WriteHtonU16 (m_pg);
 
   // write IntHeader
@@ -111,7 +123,8 @@ SeqTsHeader::Deserialize (Buffer::Iterator start)
 {
   Buffer::Iterator i = start;
   m_seq = i.ReadNtohU32 ();
-  m_pg =  i.ReadNtohU16 ();
+  m_flow_id = i.ReadNtohU16 ();
+  m_pg = i.ReadNtohU16 ();
 
   // read IntHeader
   ih.Deserialize(i);

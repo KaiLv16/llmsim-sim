@@ -169,7 +169,7 @@ class RdmaQueuePair : public Object {
     }
 
     Time GetRto(uint32_t mtu) {
-        std::cout << "mtu: " << mtu << ". Calling GetRto()\n";
+        // std::cout << "mtu: " << mtu << ". Calling GetRto()\n";
         if (irn.m_enabled) {
             if (GetIrnBytesInFlight() >= 3 * mtu) {
                 std::cout << "return irn.m_rtoHigh = " << irn.m_rtoHigh <<std::endl;
@@ -178,7 +178,7 @@ class RdmaQueuePair : public Object {
             std::cout << "return irn.m_rtoLow = " << irn.m_rtoLow <<std::endl;
             return irn.m_rtoLow;
         } else {
-            std::cout << "return m_timeout = " << m_timeout <<std::endl;
+            // std::cout << "return m_timeout = " << m_timeout <<std::endl;
             return m_timeout;
         }
     }

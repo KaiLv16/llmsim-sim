@@ -1,9 +1,108 @@
-# NS-3 Simulator for RDMA Network Load Balancing
+# NS-3 Simulator for RDMA-based LLM Training
+
+## 快速使用
+
+### 运行仿真：
+需要用到的文件包括：在上级文件夹中的 `ResNet5-xxxx` 中的 `mix/` 文件夹中的 `llm_flow.txt` 和 `node_mapping.txt`
+
+运行仿真程序：
+```
+./autorun.sh > aaa.txt 2> bbb.txt
+```
+或者
+```
+./autorun.sh > aaa.txt 2>&1
+```
+
+这样会把stdout输出到 `aaa.txt`, stderr输出到 `bbb.txt`，方便查看log
+
+用于输出收发信息的函数：
+
+``` C++
+inline const char* getPriorityString(int pkt_type) {
+    switch (pkt_type) {
+        case 0:
+            return "UDP";
+        case 1:
+            return "CNP";
+        case 2:
+            return "NACK";
+        case 3:
+            return "ACK";
+        case 4:
+            return "PFC";
+        default:
+            return "Undefined";
+    }
+}
+/**
+ * @brief record a send/recv event. 0: recv, 1: send; size: pkt_size
+ */
+void snd_rcv_record(FILE *fout, Ptr<QbbNetDevice> dev, 
+                uint32_t rcv_snd_type, uint32_t pkt_type, uint32_t pkt_size, int flowid=-1, int seq=-1) {
+    // time, nodeID, nodeType, Interface's Idx, 0:resume, 1:pause
+    fprintf(fout, "%lu: %s %u NIC %u %s a %s pkt. size=%u flowid=%d seq=%d\n", 
+            Simulator::Now().GetTimeStep(), 
+            (dev->GetNode()->GetNodeType() == 0) ? " host  " : "switch ", 
+            dev->GetNode()->GetId(),
+            dev->GetIfIndex(), 
+            // 下面是动态填充的
+            (rcv_snd_type == 0) ? " recv " : " send ",
+            getPriorityString(pkt_type),
+            pkt_size,
+            flowid,
+            seq);
+}
+```
+
+数据包类型定义：
+``` C++
+inline int get_pkt_status(uint32_t l3Prot){
+    int pkt_type = -1;
+    if (l3Prot == 0x11) {  // UDP
+        pkt_type = 0;
+    } else if (l3Prot == 0xFF) {  // CNP
+        pkt_type = 1;
+    } else if (l3Prot == 0xFD) {  // NACK
+        pkt_type = 2;
+    } else if (l3Prot == 0xFC) {  // ACK
+        pkt_type = 3;
+    } else if (l3Prot == 0xFE) {  // PFC
+        pkt_type = 4;
+    }
+    return pkt_type;
+}
+```
+上面的代码绑定到了：
+``` C++
+.AddTraceSource("SndRcvRecord", "record a send/recv event. 0: recv, 1: send; size: pkt_size",
+                MakeTraceSourceAccessor(&QbbNetDevice::m_traceSndRcv));
+```
+
+
+### 绘制流量：
+
+可以从上述 `llm_flow.txt` 中看到每条流的编号。如果要绘制其中某一些编号的流的flow_rate，需要在 `config/flow_to_draw.txt` 中添加他们的编号。
+
+然后运行绘图程序。该程序使用了`mix/output/test_<x>/test_<x>_snd_rcv_record_file.txt` 中的数据包收发的log：
+
+```
+python3 plot_flow_rate.py --x_min 0.075 --x_max 0.0875 --threshold 10
+```
+注意：x_min 不要直接设为0，而是设为0.0000001 这样的值，不然有个小bug
+
+
+
+## [Credit to] 
+
+本模拟器是基于如下仓库修改而成，详见 “原始信息”一节
+
+
+## 原始信息
 
 This is a Github repository for the SIGCOMM'23 paper "[Network Load Balancing with In-network Reordering Support for RDMA](https://doi.org/10.1145/3603269.3604849)".
 
 We describe how to run this repository either on docker or using your local machine with `ubuntu:20.04`. 
-
 
 ## Run with Docker
 

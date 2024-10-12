@@ -54,16 +54,21 @@ public:
   void SetPG (uint16_t pg);
   uint16_t GetPG () const;
 
+  void SetFlowId (uint16_t id);
+  uint16_t GetFlowId () const;
+
   static TypeId GetTypeId (void);
   virtual TypeId GetInstanceTypeId (void) const;
   virtual void Print (std::ostream &os) const;
   virtual uint32_t GetSerializedSize (void) const;
   static uint32_t GetHeaderSize(void);
+  
 private:
   virtual void Serialize (Buffer::Iterator start) const;
   virtual uint32_t Deserialize (Buffer::Iterator start);
 
   uint32_t m_seq;
+  uint16_t m_flow_id;  // 我加的
   uint16_t m_pg;
 public:
   IntHeader ih;

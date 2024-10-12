@@ -106,6 +106,7 @@ public:
 		  uint16_t payload_size;
 		  // SeqTsHeader
 		  uint16_t pg;
+      uint16_t flow_id;
 		  uint32_t seq;
 		  IntHeader ih;
 	  } udp;
@@ -122,6 +123,7 @@ public:
 		  uint16_t sport, dport;
 		  uint16_t flags;
 		  uint16_t pg;
+      uint16_t flow_id;
 		  uint32_t seq; // the qbb sequence number.
 		  IntHeader ih;
 		  uint32_t irnNack;

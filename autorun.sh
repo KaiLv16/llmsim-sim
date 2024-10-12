@@ -32,6 +32,8 @@ TOPOLOGY="topo_dumbbell_${dci_link_num}dcilink_${dci_switch_num}dci_${core_switc
 
 FLOWFILE="dumbbell_flow_test1"
 FLOWFILE2="dumbbell_cc_test"
+FLOWFILE_LLM="../../ResNet50-MNIST-pytorch/mix/llm_flow"
+NODE_MAPPING="../../ResNet50-MNIST-pytorch/mix/node_mapping"
 
 
 NETLOAD="50" # network load 50%
@@ -69,10 +71,17 @@ cecho "GREEN" "Run Test..."
 # lb_modes = {"fecmp", "drill", "conga", "letflow", "conweave", "host_spray", "switch_spray", "host_switch_spray"}
 
 rm -r mix/output/
-rm my_test_log.txt
+LOG_FILE="my_test_log.txt"  
+  
+if [ -e "$LOG_FILE" ]; then  
+    rm "$LOG_FILE"  
+    echo "File '$LOG_FILE' has been removed."  
+else  
+    echo "File '$LOG_FILE' does not exist."  
+fi
 
 # debug 参数 is useless
-python3 run.py  --flow_file_name ${FLOWFILE2} --flow_relation ${FLOW_RELATION} --cc dcqcn --lb fecmp --spray 1 --pfc 0 --irn 1 --debug 0 --simul_time ${RUNTIME} --netload ${NETLOAD} --topo ${TOPOLOGY} >  results/my_test_log.txt
+python3 run.py  --flow_file_name ${FLOWFILE_LLM} --flow_relation ${FLOW_RELATION} --node_mapping ${NODE_MAPPING} --cc dcqcn --lb fecmp --spray 1 --pfc 1 --irn 0 --debug 0 --simul_time ${RUNTIME} --netload ${NETLOAD} --topo ${TOPOLOGY}  #  >  results/my_test_log.txt
 # Lossless RDMA
 # python3 run.py --lb fecmp --pfc 1 --irn 0 --simul_time ${RUNTIME} --netload ${NETLOAD} --topo ${TOPOLOGY} 2>&1 > /dev/null & 
 # sleep 5

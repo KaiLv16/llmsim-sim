@@ -18,3 +18,5 @@ __pycache__
 *log.txt
 
 results/*
+est_error.txt
+routing_table.txt
