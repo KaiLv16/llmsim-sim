@@ -100,8 +100,6 @@ inline int get_pkt_status(uint32_t l3Prot){
 ```
 python3 plot_flow_rate.py --x_min 0.075 --x_max 0.0875 --threshold 10
 ```
-注意：x_min 不要直接设为0，而是设为0.0000001 这样的值，不然有个小bug
-
 
 
 ## [Credit to] 
