@@ -52,12 +52,14 @@ def read_flowid_from_file(filename):
         
         # 如果 i 或 j 为 -1，退出
         if i == -1 or j == -1:
+            print('read all flows.')
             return None
         
         # 读取剩余的所有行
         lines = file.readlines()
         
         # 确保 i 和 j 在有效范围内
+        print(len(lines))
         if 1 <= i <= len(lines) and 1 <= j <= len(lines) and i <= j:
             # 读取第i到第j行（包括i和j），将这些行的数字组合成一个列表
             combined_list = []
@@ -68,6 +70,7 @@ def read_flowid_from_file(filename):
                     combined_list.extend(numbers)
             return combined_list
         else:
+            print("i or j is invalid")
             return None  # 如果i或j超出文件行数范围，返回None
 
 
