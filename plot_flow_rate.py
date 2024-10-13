@@ -15,6 +15,7 @@ def parse_args():
     parser.add_argument('--x_min', type=float, default=-1, help='x 轴的最小值，默认值为 -1')
     parser.add_argument('--x_max', type=float, default=10000000000000, help='x 轴的最大值，默认值为 1000000000000')
     parser.add_argument('--threshold', type=float, default=5, help='曲线最大值的阈值，超过该值时才显示图例，默认值为 0.5')
+    parser.add_argument('--type', type=str, default='send_recv', help='指定绘制的曲线属于 \'send\' 还是 \'recv\' 。默认是\'send_recv\'')
 
     # 解析命令行参数
     args = parser.parse_args()
@@ -179,25 +180,26 @@ if use_pkl == False or not os.path.exists('results/flow_send_rate.pkl'):
 
     flow_send_rate = {}
     flow_recv_rate = {}
+    plot_min_time = 0
 
     # 这里画的是 data_send
     for flowid_type, data in data_send.items():
         if flowid_type[1] == 'UDP':
-            flow_send_rate[flowid_type] = np.zeros((max_time - min_time) // time_interval + 1)  # 初始化速率为0
+            flow_send_rate[flowid_type] = np.zeros((max_time - plot_min_time) // time_interval + 1)  # 初始化速率为0
             # print(data['time'])
             for time in data['time']:
                 # 计算当前包属于哪个时间区间
-                index = (time - min_time) // time_interval
+                index = (time - plot_min_time) // time_interval
                 flow_send_rate[flowid_type][index] += pkt_size  # 在该时间区间内累加数据包大小
 
     # 这里画的是 data_recv
     for flowid_type, data in data_recv.items():
         if flowid_type[1] == 'UDP':
-            flow_recv_rate[flowid_type] = np.zeros((max_time - min_time) // time_interval + 1)  # 初始化速率为0
+            flow_recv_rate[flowid_type] = np.zeros((max_time - plot_min_time) // time_interval + 1)  # 初始化速率为0
             # print(data['time'])
             for time in data['time']:
                 # 计算当前包属于哪个时间区间
-                index = (time - min_time) // time_interval
+                index = (time - plot_min_time) // time_interval
                 flow_recv_rate[flowid_type][index] += pkt_size  # 在该时间区间内累加数据包大小
 
     # 保存 flow_send_rate 到文件
@@ -261,48 +263,54 @@ print('ccc')
 
 flow_list = read_flowid_from_file('config/flow_to_be_plotted.py')
 # assert flow_list is not None
-print(flow_list)
+print(f"current curve in \'flow_to_be_plotted.py\': {flow_list}")
 
 args = parse_args()
 
 # 绘制图表
 plt.figure(figsize=(10, 6))
 
-for flowid_type, rate in flow_send_rate.items():
-    if flow_list is None or (flow_list is not None and flowid_type[0] in flow_list):
-        # 转换为 Gbps
-        time_axis = np.arange(len(rate)) * time_interval / 1000000000  # 转换为 s
-        # x_max = min(time_axis[-1], args.x_max)
-        # x_min = max(time_axis[0],  args.x_min)
-        mask = (time_axis >= args.x_min) & (time_axis <= args.x_max)
-        x_sub = time_axis[mask]
-        y_sub = rate[mask]
-        print(flowid_type, rate, 'Global max:', max(rate), '; ', y_sub, 'Interval max:', max(y_sub))
-        if len(x_sub) > 0 and len(y_sub) > 0:
-            label = f'Flow {flowid_type} Snd Rate' if np.max(y_sub) > args.threshold else '_nolegend_'
-            plt.plot(x_sub, y_sub, label=label)
-        # plt.plot(time_axis, rate, label=f'Flow {flowid_type} Sending Rate')
+if 'send' in args.type:
+    for flowid_type, rate in flow_send_rate.items():
+        if flow_list is None or (flow_list is not None and flowid_type[0] in flow_list):
+            # 转换为 Gbps
+            time_axis = np.arange(len(rate)) * time_interval / 1000000  # 转换为 ms
+            # x_max = min(time_axis[-1], args.x_max)
+            # x_min = max(time_axis[0],  args.x_min)
+            mask = (time_axis >= args.x_min) & (time_axis <= args.x_max)
+            x_sub = time_axis[mask]
+            y_sub = rate[mask]
+            
+            # print(flowid_type, rate, 'Global max:', max(rate), '; ', y_sub, 'Interval max:', max(y_sub))
+            
+            if len(x_sub) > 0 and len(y_sub) > 0:
+                label = f'Flow {flowid_type} Snd Rate' if np.max(y_sub) > args.threshold else '_nolegend_'
+                plt.plot(x_sub, y_sub, label=label)
+            # plt.plot(time_axis, rate, label=f'Flow {flowid_type} Sending Rate')
 
-for flowid_type, rate in flow_recv_rate.items():
-    if flow_list is None or (flow_list is not None and flowid_type[0] in flow_list):
-        # 转换为 Gbps
-        time_axis = np.arange(len(rate)) * time_interval / 1000000000  # 转换为 s
-        # x_max = min(time_axis[-1], args.x_max)
-        # x_min = max(time_axis[0],  args.x_min)
-        mask = (time_axis >= args.x_min) & (time_axis <= args.x_max)
-        x_sub = time_axis[mask]
-        y_sub = rate[mask]
-        print(flowid_type, rate, 'Global max:', max(rate), '; ', y_sub, 'Interval max:', max(y_sub))
-        if len(x_sub) > 0 and len(y_sub) > 0:
-            label = f'Flow {flowid_type} Rcv Rate' if np.max(y_sub) > args.threshold else '_nolegend_'
-            plt.plot(x_sub, y_sub, label=label)
-        # plt.plot(time_axis, rate, label=f'Flow {flowid_type} Sending Rate')
+if 'recv' in args.type:
+    for flowid_type, rate in flow_recv_rate.items():
+        if flow_list is None or (flow_list is not None and flowid_type[0] in flow_list):
+            # 转换为 Gbps
+            time_axis = np.arange(len(rate)) * time_interval / 1000000  # 转换为 ms
+            # x_max = min(time_axis[-1], args.x_max)
+            # x_min = max(time_axis[0],  args.x_min)
+            mask = (time_axis >= args.x_min) & (time_axis <= args.x_max)
+            x_sub = time_axis[mask]
+            y_sub = rate[mask]
+            
+            # print(flowid_type, rate, 'Global max:', max(rate), '; ', y_sub, 'Interval max:', max(y_sub))
+            
+            if len(x_sub) > 0 and len(y_sub) > 0:
+                label = f'Flow {flowid_type} Rcv Rate' if np.max(y_sub) > args.threshold else '_nolegend_'
+                plt.plot(x_sub, y_sub, label=label)
+            # plt.plot(time_axis, rate, label=f'Flow {flowid_type} Sending Rate')
 
 
 # 设置 x 轴范围
 # plt.xlim([x_min, x_max])
 
-plt.xlabel('Time (s)')
+plt.xlabel('Time (ms)')
 plt.ylabel('Rate (Gbps)')
 plt.title('Sending / Receiving Rates per Flow')
 
@@ -317,7 +325,9 @@ plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.1), ncol=4)
 plt.grid(True)
 
 # 保存为PDF，不裁切边界
-plt.savefig('results/flow_rates.pdf', format='pdf', bbox_inches='tight', pad_inches=0.1)
+plt.savefig(f'results/flow_rates.pdf', format='pdf', bbox_inches='tight', pad_inches=0.1)
 
-            
+# plt.savefig(f'results/flow_rates_{args.x_min}_{args.x_max}.pdf', format='pdf', bbox_inches='tight', pad_inches=0.1)
+
+
 plt.show()

@@ -99,6 +99,8 @@ inline int get_pkt_status(uint32_t l3Prot){
 
 ```
 python3 plot_flow_rate.py --x_min 0.075 --x_max 0.0875 --threshold 10
+
+python3 plot_flow_rate.py --x_min 19 --x_max 28 --type send
 ```
 
 
