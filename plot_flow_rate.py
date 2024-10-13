@@ -34,6 +34,7 @@ data_send = defaultdict(lambda: defaultdict(list))
 data_send_meta = defaultdict(list)
 data_recv = defaultdict(lambda: defaultdict(list))
 data_recv_meta = defaultdict(list)
+flow_path = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
 
 max_time = 0
 min_time = float('inf')
@@ -113,6 +114,37 @@ if use_pkl == False or not os.path.exists('results/flow_send_rate.pkl'):
                     data_recv[(flowid, pkt_type)]['time'].append(timestamp_ns)
                     data_recv[(flowid, pkt_type)]['size'].append(size)
                     data_recv[(flowid, pkt_type)]['seq'].append(seq)
+
+            else:
+                if action == 'send':
+                    if (node_id, port_num) not in flow_path[flowid]['send'][pkt_type]:
+                        flow_path[flowid]['send'][pkt_type].insert(0, (node_id, port_num))
+                        # data_send_meta[(flowid, pkt_type)] = [node_id, port_num, pkt_type]
+                else:
+                    if (node_id, port_num) not in flow_path[flowid]['recv'][pkt_type]:
+                        flow_path[flowid]['recv'][pkt_type].insert(0, (node_id, port_num))
+                        # data_recv_meta[(flowid, pkt_type)] = [node_id, port_num, pkt_type]
+
+
+    for k, v in data_send_meta.items():
+        if (v[0], v[1]) not in flow_path[k[0]]['send'][k[1]]:
+            flow_path[k[0]]['send'][k[1]].insert(0, (v[0], v[1]))
+    for k, v in data_recv_meta.items():
+        if (v[0], v[1]) not in flow_path[k[0]]['recv'][k[1]]:
+            flow_path[k[0]]['recv'][k[1]].insert(0, (v[0], v[1]))
+
+    with open('results/flow_path_output.txt', 'w') as file:
+        # 遍历 flow_path 按 flow_id 写入文件
+        for flow_id in sorted(flow_path.keys()):
+            flow_data = flow_path[flow_id]
+            file.write(f'Flow ID: {flow_id}\n')
+            for type, data in flow_data.items():
+                file.write(f'  {type} Path:\n')
+                for pkt_type, path in data.items():
+                    file.write(f'    {pkt_type}: {path}\n')
+
+            file.write('\n')  # 每个 flow_id 之间加一个空行
+
 
 
     # 存储数据的字典
