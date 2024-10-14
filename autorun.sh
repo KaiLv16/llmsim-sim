@@ -38,7 +38,7 @@ NODE_MAPPING="../../ResNet50-MNIST-pytorch/mix/node_mapping"
 
 NETLOAD="50" # network load 50%
 RUNTIME="100" # 0.1 second (traffic generation)
-FLOW_RELATION="1"
+FLOW_RELATION="1"   # "1" means using ralational flow file, while "0" use traditional flow file
 
 
 cecho "YELLOW" "\n----------------------------------"
@@ -67,10 +67,8 @@ cecho "GREEN" "Run Test..."
     # thread 1
     # frame 1`
 
-# cc_modes = {"dcqcn", "hpcc", "timely", "dctcp", "hpccPint"}
-# lb_modes = {"fecmp", "drill", "conga", "letflow", "conweave", "host_spray", "switch_spray", "host_switch_spray"}
+# rm -r mix/output/
 
-rm -r mix/output/
 LOG_FILE="my_test_log.txt"  
   
 if [ -e "$LOG_FILE" ]; then  
@@ -80,8 +78,15 @@ else
     echo "File '$LOG_FILE' does not exist."  
 fi
 
-# debug 参数 is useless
-python3 run.py  --flow_file_name ${FLOWFILE_LLM} --flow_relation ${FLOW_RELATION} --node_mapping ${NODE_MAPPING} --cc dcqcn --lb fecmp --spray 1 --pfc 1 --irn 0 --debug 0 --simul_time ${RUNTIME} --netload ${NETLOAD} --topo ${TOPOLOGY}  #  >  results/my_test_log.txt
+# cc_modes = {"dcqcn", "hpcc", "timely", "dctcp", "hpccPint"}
+# lb_modes = {"fecmp", "drill", "conga", "letflow", "conweave", "host_spray", "switch_spray", "host_switch_spray"}
+
+# `debug` parameter is useless
+python3 run.py  --flow_file_name ${FLOWFILE_LLM} --flow_relation ${FLOW_RELATION} --node_mapping ${NODE_MAPPING} \
+   --cc timely --lb fecmp --spray 1 --pfc 1 --irn 0 --debug 0 \
+   --simul_time ${RUNTIME} --netload ${NETLOAD} --topo ${TOPOLOGY} \
+#    > results/my_test_log.txt
+
 # Lossless RDMA
 # python3 run.py --lb fecmp --pfc 1 --irn 0 --simul_time ${RUNTIME} --netload ${NETLOAD} --topo ${TOPOLOGY} 2>&1 > /dev/null & 
 # sleep 5

@@ -44,6 +44,11 @@ use_pkl = True
 mode = 'send'
 mode = 'recv'
 
+config_ID = 'timely(7)_fecmp(0)_pfc1_irn0'
+
+# with open('mix/last_param.txt', 'r') as file:
+#     config_ID = file.readline().strip()
+
 def read_flowid_from_file(filename):
     with open(filename, 'r') as file:
         # 读取第一行，获取i和j
@@ -74,8 +79,8 @@ def read_flowid_from_file(filename):
             return None  # 如果i或j超出文件行数范围，返回None
 
 
-if use_pkl == False or not os.path.exists('results/flow_send_rate.pkl'):
-    with open('mix/output/test_0/test_0_snd_rcv_record_file.txt', 'r') as file:
+if use_pkl == False or not os.path.exists(f'results/{config_ID}/flow_send_rate.pkl'):
+    with open(f'mix/output/{config_ID}/{config_ID}_snd_rcv_record_file.txt', 'r') as file:
         for line in file:
             # print(line)
             parts = line.split()
@@ -137,7 +142,7 @@ if use_pkl == False or not os.path.exists('results/flow_send_rate.pkl'):
         if (v[0], v[1]) not in flow_path[k[0]]['recv'][k[1]]:
             flow_path[k[0]]['recv'][k[1]].insert(0, (v[0], v[1]))
 
-    with open('results/flow_path_output.txt', 'w') as file:
+    with open(f'results/{config_ID}/flow_path_output.txt', 'w') as file:
         # 遍历 flow_path 按 flow_id 写入文件
         for flow_id in sorted(flow_path.keys()):
             flow_data = flow_path[flow_id]
@@ -148,36 +153,6 @@ if use_pkl == False or not os.path.exists('results/flow_send_rate.pkl'):
                     file.write(f'    {pkt_type}: {path}\n')
 
             file.write('\n')  # 每个 flow_id 之间加一个空行
-
-
-
-    # 存储数据的字典
-    # flow_data = {}
-
-    # # 读取并解析文件
-    # with open('mix/output/test_0/test_0_snd_rcv_record_file.txt', 'r') as file:
-    #     for line in file:
-    #         if 'host' in line and 'NIC' in line and 'send' in line:
-    #             # 提取时间、flowid和seq
-    #             match = re.search(r'(\d+):\s+host\s+\d+\s+NIC\s+\d+\s+send\s+a\s+pkt.\s+size=\d+\s+flowid=(\d+)\s+seq=(\d+)', line)
-    #             if match:
-    #                 time = int(match.group(1)) - 2000000000  # 时间（ns）
-    #                 flowid = int(match.group(2))  # flowid
-    #                 seq = int(match.group(3))  # seq
-    #                 max_time = max(max_time, time)
-    #                 min_time = min(min_time, time)
-
-    #                 if flowid not in flow_data:
-    #                     # 初始化数据
-    #                     flow_data[flowid] = {
-    #                         'time': [],        # 保存包的发送时间
-    #                         'seq': [],         # 保存包的序列号
-    #                     }
-                        
-    #                 # 保存时间和序列号
-    #                 # 每次保存表示在时间 time 到达了一个大小为 pkt_size 的数据包，包的序列号为 seq
-    #                 flow_data[flowid]['time'].append(time)
-    #                 flow_data[flowid]['seq'].append(seq)
 
     print(f"min_time: {min_time}, max_time: {max_time}")
 
@@ -206,19 +181,19 @@ if use_pkl == False or not os.path.exists('results/flow_send_rate.pkl'):
                 flow_recv_rate[flowid_type][index] += pkt_size  # 在该时间区间内累加数据包大小
 
     # 保存 flow_send_rate 到文件
-    with open('results/flow_send_rate.pkl', 'wb') as file:
+    with open(f'results/{config_ID}/flow_send_rate.pkl', 'wb') as file:
         pickle.dump(flow_send_rate, file)
 
-    with open('results/flow_recv_rate.pkl', 'wb') as file:
+    with open(f'results/{config_ID}/flow_recv_rate.pkl', 'wb') as file:
         pickle.dump(flow_recv_rate, file)
 
 else:
     # 从文件中读取 flow_send_rate
-    with open('results/flow_send_rate.pkl', 'rb') as file:
+    with open(f'results/{config_ID}/flow_send_rate.pkl', 'rb') as file:
         flow_send_rate = pickle.load(file)
     
     # 从文件中读取 flow_recv_rate
-    with open('results/flow_recv_rate.pkl', 'rb') as file:
+    with open(f'results/{config_ID}/flow_recv_rate.pkl', 'rb') as file:
         flow_recv_rate = pickle.load(file)
 
 print('aaa')
@@ -315,7 +290,7 @@ if 'recv' in args.type:
 
 plt.xlabel('Time (ms)')
 plt.ylabel('Rate (Gbps)')
-plt.title('Sending / Receiving Rates per Flow')
+plt.title(f'Sending / Receiving Rates per Flow ({config_ID})')
 
 # plt.legend(loc='best')
 
@@ -328,7 +303,7 @@ plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.1), ncol=4)
 plt.grid(True)
 
 # 保存为PDF，不裁切边界
-plt.savefig(f'results/flow_rates.pdf', format='pdf', bbox_inches='tight', pad_inches=0.1)
+plt.savefig(f'results/{config_ID}/flow_rates.pdf', format='pdf', bbox_inches='tight', pad_inches=0.1)
 
 # plt.savefig(f'results/flow_rates_{args.x_min}_{args.x_max}.pdf', format='pdf', bbox_inches='tight', pad_inches=0.1)
 

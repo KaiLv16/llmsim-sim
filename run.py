@@ -13,6 +13,7 @@ import sys
 import os
 import argparse
 from datetime import date
+import shutil
 
 from cut_output_file import * 
 
@@ -208,6 +209,29 @@ def main():
     lb_mode = lb_modes[args.lb]
     enabled_pfc = int(args.pfc)
     enabled_irn = int(args.irn)
+
+    config_ID = f"{args.cc}({cc_mode})_{args.lb}({lb_mode})_pfc{enabled_pfc}_irn{enabled_irn}"
+    print(f"config_ID: {config_ID}")
+
+    # 如果本次参数和上次相等，就删除上次的输出
+    with open('mix/last_param.txt', 'r') as file:
+        first_line = file.readline().strip()  # 使用 .strip() 去除可能的换行符
+        if first_line == config_ID:
+            output_path = f'mix/output/{first_line}'
+            # 如果相等，删除 out.txt 文件
+            if os.path.exists(output_path):
+                # 判断是文件还是目录，并删除
+                if os.path.isfile(output_path):
+                    os.remove(output_path)  # 删除文件
+                    print(f"{output_path} 旧文件已删除")
+                elif os.path.isdir(output_path):
+                    shutil.rmtree(output_path)  # 递归删除目录及其内容
+                    print(f"{output_path} 旧目录已删除")
+
+    with open('mix/last_param.txt', 'w') as file:
+        file.write(config_ID)
+
+
     bw = int(args.bw)
     buffer = args.buffer
     topo = args.topo    # 生成拓扑的文件名
@@ -665,10 +689,14 @@ def main():
                 monitoringInterval=sw_monitoring_interval))  # TODO: parameterize
 
         print("\n\n============== Done ============== ")
+    return config_ID
 
 
 if __name__ == "__main__":
-    main()
+
+    config_ID = main()
     # 调用函数
-    save_first_xxx_lines(100000, 'mix/output/test_0/test_0_snd_rcv_record_file')
+    save_first_xxx_lines(100000, f'mix/output/{config_ID}/{config_ID}_snd_rcv_record_file')
+
+
 
