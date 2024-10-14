@@ -98,9 +98,13 @@ inline int get_pkt_status(uint32_t l3Prot){
 该程序使用了`mix/output/test_<x>/test_<x>_snd_rcv_record_file.txt` 中的数据包收发的log：
 
 ```
+python3 plot_flow_rate.py --type send
+
 python3 plot_flow_rate.py --x_min 0.075 --x_max 0.0875 --threshold 10
 
 python3 plot_flow_rate.py --x_min 19 --x_max 28 --type send
+
+python3 plot_flow_rate.py --type send --configID 'dcqcn(1)_fecmp(0)_pfc1_irn0'
 ```
 
 
