@@ -83,7 +83,7 @@ fi
 
 # `debug` parameter is useless
 python3 run.py  --flow_file_name ${FLOWFILE_LLM} --flow_relation ${FLOW_RELATION} --node_mapping ${NODE_MAPPING} \
-   --cc timely --lb fecmp --spray 1 --pfc 1 --irn 0 --debug 0 \
+   --cc dcqcn --lb fecmp --spray 1 --pfc 1 --irn 0 --debug 0 \
    --simul_time ${RUNTIME} --netload ${NETLOAD} --topo ${TOPOLOGY} \
 #    > results/my_test_log.txt
 

@@ -16,6 +16,7 @@ def parse_args():
     parser.add_argument('--x_max', type=float, default=10000000000000, help='x 轴的最大值，默认值为 1000000000000')
     parser.add_argument('--threshold', type=float, default=5, help='曲线最大值的阈值，超过该值时才显示图例，默认值为 0.5')
     parser.add_argument('--type', type=str, default='send_recv', help='指定绘制的曲线属于 \'send\' 还是 \'recv\' 。默认是\'send_recv\'')
+    parser.add_argument('--configID', type=str, default='timely(7)_fecmp(0)_pfc1_irn0', help='类似 mix/last_param.txt 的内容')
 
     # 解析命令行参数
     args = parser.parse_args()
@@ -44,10 +45,18 @@ use_pkl = True
 mode = 'send'
 mode = 'recv'
 
-config_ID = 'timely(7)_fecmp(0)_pfc1_irn0'
+
+args = parse_args()
+
+config_ID = args.configID
+
+# config_ID = 'timely(7)_fecmp(0)_pfc1_irn0'
 
 # with open('mix/last_param.txt', 'r') as file:
 #     config_ID = file.readline().strip()
+
+# 确保目录存在，os.makedirs() 可以递归创建目录，如果目录已存在则不报错
+os.makedirs(f"results/{config_ID}", exist_ok=True)
 
 def read_flowid_from_file(filename):
     with open(filename, 'r') as file:
@@ -243,7 +252,6 @@ flow_list = read_flowid_from_file('config/flow_to_be_plotted.py')
 # assert flow_list is not None
 print(f"current curve in \'flow_to_be_plotted.py\': {flow_list}")
 
-args = parse_args()
 
 # 绘制图表
 plt.figure(figsize=(10, 6))
