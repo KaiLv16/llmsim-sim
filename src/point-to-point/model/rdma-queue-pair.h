@@ -166,18 +166,18 @@ class RdmaQueuePair : public Object {
     // max_seq - irn.m_highest_ack。需要看一下highest_ack是选择性ACK吗，还是有终端也可以？
     inline uint32_t GetIrnBytesInFlight() const {
         // IRN do not consider SACKed segments for simplicity
-        std::cout << Simulator::Now() << "Flow " << m_flow_id << " call GetIrnBytesInFlight()   irn.m_max_seq: " << irn.m_max_seq << " irn.m_highest_ack: " <<  irn.m_highest_ack << std::endl;
+        std::cout << "-> call GetIrnBytesInFlight()   irn.m_max_seq: " << irn.m_max_seq << " irn.m_highest_ack: " <<  irn.m_highest_ack << std::endl;
         return irn.m_max_seq - irn.m_highest_ack;
     }
 
     Time GetRto(uint32_t mtu) {
-        // std::cout << "mtu: " << mtu << ". Calling GetRto()\n";
+        std::cout << Simulator::Now() << " Flow " << m_flow_id << ": Calling GetRto(), ";
         if (irn.m_enabled) {
             if (GetIrnBytesInFlight() >= 3 * mtu) {
-                std::cout << Simulator::Now() << "Flow " << m_flow_id << " call GetRto(), return irn.m_rtoHigh = " << irn.m_rtoHigh <<std::endl;
+                std::cout << Simulator::Now() << " Flow " << m_flow_id << " call GetRto(), return irn.m_rtoHigh = " << irn.m_rtoHigh <<std::endl;
                 return irn.m_rtoHigh;
             }
-            std::cout << Simulator::Now() << "Flow " << m_flow_id << " call GetRto(), return irn.m_rtoLow = " << irn.m_rtoLow <<std::endl;
+            std::cout << Simulator::Now() << " Flow " << m_flow_id << " call GetRto(), return irn.m_rtoLow = " << irn.m_rtoLow <<std::endl;
             return irn.m_rtoLow;
         } else {
             // std::cout << "return m_timeout = " << m_timeout <<std::endl;
@@ -186,9 +186,8 @@ class RdmaQueuePair : public Object {
     }
     // 滑动窗口逻辑
     inline bool CanIrnTransmit(uint32_t mtu) const {
-        std::cout << Simulator::Now() << "Flow " << m_flow_id << "call CanIrnTransmit(" << mtu << ")\n";
+        std::cout << Simulator::Now() << " Flow " << m_flow_id << ": Calling CanIrnTransmit(), ";
         uint64_t len_left = m_size >= snd_nxt ? m_size - snd_nxt : 0;
-
         return !irn.m_enabled ||        // 不是IRN（不归IRN管）
                (GetIrnBytesInFlight() + ((len_left > mtu) ? mtu : len_left)) < irn.m_bdp ||  // 限制在发数据包小于BDP
                (snd_nxt < irn.m_highest_ack + irn.m_bdp);       // 在途数据包不能太小（小于BDP）？

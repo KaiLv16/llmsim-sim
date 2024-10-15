@@ -536,7 +536,6 @@ void RelationalFlowEnd(uint32_t flowid) {
             std::cerr << Simulator::Now() << ftype2 << invokedFlowId << " becomes Ready.\n";
         }
     }
-    std::cerr << std::endl;
     ScheduleFlowRelational();
 }
 

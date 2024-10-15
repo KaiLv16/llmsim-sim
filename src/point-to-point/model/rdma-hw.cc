@@ -25,6 +25,7 @@ namespace ns3 {
 
 NS_LOG_COMPONENT_DEFINE("RdmaHw");
 
+// 记录了每条流有多少次timeout
 std::unordered_map<unsigned, unsigned> acc_timeout_count;
 uint64_t RdmaHw::nAllPkts = 0;
 
@@ -201,6 +202,9 @@ void RdmaHw::AddQueuePair(uint64_t size, uint16_t pg, Ipv4Address sip, Ipv4Addre
         qp->irn.m_bdp = m_irn_bdp;
         qp->irn.m_rtoLow = m_irn_rtoLow;
         qp->irn.m_rtoHigh = m_irn_rtoHigh;
+        if (flow_id == 18) {
+            std::cout << flow_id << ' ' << qp->irn.m_enabled <<' '<< qp->irn.m_bdp <<' '<< qp->irn.m_rtoLow <<' '<< qp->irn.m_rtoHigh << std::endl;
+        }
     }
 
     // add qp
@@ -537,8 +541,7 @@ int RdmaHw::ReceiveAck(Ptr<Packet> p, CustomHeader &ch) {
         }
         // std::cout << "RdmaHw::ReceiveAck() calls GetRto()" <<std::endl;
         Time qp_mtu = qp->GetRto(m_mtu);
-        qp->m_retransmit = Simulator::Schedule(qp_mtu, &RdmaHw::HandleTimeout, this, qp,
-                                               qp_mtu);
+        qp->m_retransmit = Simulator::Schedule(qp_mtu, &RdmaHw::HandleTimeout, this, qp, qp_mtu);
     }
 
     if (m_irn) {
@@ -721,7 +724,10 @@ uint16_t RdmaHw::EtherToPpp(uint16_t proto) {
     return 0;
 }
 
-void RdmaHw::RecoverQueue(Ptr<RdmaQueuePair> qp) { qp->snd_nxt = qp->snd_una; }
+// Do qp->snd_nxt = qp->snd_una
+void RdmaHw::RecoverQueue(Ptr<RdmaQueuePair> qp) {
+    qp->snd_nxt = qp->snd_una; 
+}
 
 void RdmaHw::QpComplete(Ptr<RdmaQueuePair> qp) {
     NS_ASSERT(!m_qpCompleteCallback.IsNull());
@@ -730,8 +736,9 @@ void RdmaHw::QpComplete(Ptr<RdmaQueuePair> qp) {
         Simulator::Cancel(qp->mlx.m_eventDecreaseRate);
         Simulator::Cancel(qp->mlx.m_rpTimer);
     }
-    if (qp->m_retransmit.IsRunning()) qp->m_retransmit.Cancel();
-
+    if (qp->m_retransmit.IsRunning()) {
+        qp->m_retransmit.Cancel();
+    }
     // This callback will log info. It also calls deletetion the rxQp on the receiver
     m_qpCompleteCallback(qp);
     // delete TxQueuePair
@@ -850,6 +857,7 @@ Ptr<Packet> RdmaHw::GetNxtPacket(Ptr<RdmaQueuePair> qp) {
     return p;
 }
 
+// UpdateNextAvail() and Update retrans Timer 
 void RdmaHw::PktSent(Ptr<RdmaQueuePair> qp, Ptr<Packet> pkt, Time interframeGap) {
     qp->lastPktSize = pkt->GetSize();
     UpdateNextAvail(qp, interframeGap, pkt->GetSize());
@@ -865,20 +873,23 @@ void RdmaHw::PktSent(Ptr<RdmaQueuePair> qp, Ptr<Packet> pkt, Time interframeGap)
         RdmaHw::nAllPkts += 1;
         if (ch.l3Prot == 0x11) {  // UDP
             // Update Timer
-            if (qp->m_retransmit.IsRunning()) qp->m_retransmit.Cancel();
+            if (qp->m_retransmit.IsRunning()) {
+                qp->m_retransmit.Cancel();
+            }
             // std::cout << "RdmaHw::PktSent() calls GetRto()" <<std::endl;
             Time qp_mtu = qp->GetRto(m_mtu);
-            qp->m_retransmit = Simulator::Schedule(qp_mtu, &RdmaHw::HandleTimeout, this,
-                                                   qp, qp_mtu);
-        } else if (ch.l3Prot == 0xFC || ch.l3Prot == 0xFD || ch.l3Prot == 0xFF) {  // ACK, NACK, CNP
-        } else if (ch.l3Prot == 0xFE) {                                            // PFC
+            qp->m_retransmit = Simulator::Schedule(qp_mtu, &RdmaHw::HandleTimeout, this, qp, qp_mtu);
+        }
+        else if (ch.l3Prot == 0xFC || ch.l3Prot == 0xFD || ch.l3Prot == 0xFF) {  // ACK, NACK, CNP
+        } 
+        else if (ch.l3Prot == 0xFE) {                                            // PFC
         }
     }
 }
 
 void RdmaHw::HandleTimeout(Ptr<RdmaQueuePair> qp, Time rto) {
     // Assume Outstanding Packets are lost
-    // std::cerr << "Timeout on qp=" << qp << std::endl;
+    std::cerr << "Timeout on qp=" << qp << std::endl;
     if (qp->IsFinished()) {
         return;
     }
@@ -887,14 +898,16 @@ void RdmaHw::HandleTimeout(Ptr<RdmaQueuePair> qp, Time rto) {
     Ptr<QbbNetDevice> dev = m_nic[nic_idx].dev;
 
     // IRN: disable timeouts when PFC is enabled to prevent spurious retransmissions
-    if (qp->irn.m_enabled && dev->IsQbbEnabled()) return;
-
+    if (qp->irn.m_enabled && dev->IsQbbEnabled()) {
+        return;
+    }
     if (acc_timeout_count.find(qp->m_flow_id) == acc_timeout_count.end())
         acc_timeout_count[qp->m_flow_id] = 0;
     acc_timeout_count[qp->m_flow_id]++;
 
-    if (qp->irn.m_enabled) qp->irn.m_recovery = true;
-
+    if (qp->irn.m_enabled) {
+        qp->irn.m_recovery = true;
+    }
     RecoverQueue(qp);
     dev->TriggerTransmit();
 }

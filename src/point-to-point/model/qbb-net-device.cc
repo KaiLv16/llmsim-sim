@@ -103,6 +103,10 @@ Ptr<Packet> RdmaEgressQueue::DequeueQindex(int qIndex) {
     return 0;
 }
 
+/* 高优先级有pkt可发：返回-1
+ * 没法发（被pause、窗口限制、不到下次发的时间）：返回-1024
+ * 可发：返回 QP的Index
+ */
 int RdmaEgressQueue::GetNextQindex(bool paused[]) {
     bool found = false;
     uint32_t qIndex;
@@ -115,19 +119,22 @@ int RdmaEgressQueue::GetNextQindex(bool paused[]) {
         if (m_qpGrp->IsQpFinished((qIndex + m_rrlast) % fcount))
             continue;
         Ptr<RdmaQueuePair> qp = m_qpGrp->Get((qIndex + m_rrlast) % fcount);
-        bool cond1 = !paused[qp->m_pg];
-        bool cond_window_allowed =
-            (!qp->IsWinBound() && (!qp->irn.m_enabled || qp->CanIrnTransmit(m_mtu)));
-        bool cond2 = (qp->GetBytesLeft() > 0 && cond_window_allowed);
 
-        if (!cond2 && !m_qpGrp->IsQpFinished((qIndex + m_rrlast) % fcount)) {
+        bool cond1 = !paused[qp->m_pg];         // 未被 pause
+
+        bool is_win_bound = qp->IsWinBound();
+        bool can_irn_transmit = qp->CanIrnTransmit(m_mtu);
+        std::cout << Simulator::Now() << " Flow " << qp->m_flow_id << ": IsWinBound(): " << is_win_bound << "; CanIrnTransmit(" << m_mtu << ") = " << can_irn_transmit << "\n";
+        bool cond_window_allowed = (!is_win_bound && (!qp->irn.m_enabled || can_irn_transmit));
+        bool cond2 = (qp->GetBytesLeft() > 0 && cond_window_allowed);   // 窗口机制允许
+
+        if (!cond2 && !m_qpGrp->IsQpFinished((qIndex + m_rrlast) % fcount)) {   // 未被pause，窗口不允许
             if (qp->IsFinishedConst()) {
                 m_qpGrp->SetQpFinished((qIndex + m_rrlast) % fcount);
             }
         }
-        if (!cond1 && cond2) {
-            if (m_qpGrp->Get((qIndex + m_rrlast) % fcount)->m_nextAvail.GetTimeStep() >
-                Simulator::Now().GetTimeStep()) {
+        if (!cond1 && cond2) {      // 被pause，窗口允许
+            if (m_qpGrp->Get((qIndex + m_rrlast) % fcount)->m_nextAvail.GetTimeStep() > Simulator::Now().GetTimeStep()) {
                 // not available now
             } else {
                 // blocked by PFC
@@ -135,9 +142,8 @@ int RdmaEgressQueue::GetNextQindex(bool paused[]) {
                 if (!MAP_KEY_EXISTS(current_pause_time, flowid))
                     current_pause_time[flowid] = Simulator::Now();
             }
-        } else if (cond1 && cond2) {
-            if (m_qpGrp->Get((qIndex + m_rrlast) % fcount)->m_nextAvail.GetTimeStep() >
-                Simulator::Now().GetTimeStep())  // not available now
+        } else if (cond1 && cond2) {    // 未被pause，窗口允许
+            if (m_qpGrp->Get((qIndex + m_rrlast) % fcount)->m_nextAvail.GetTimeStep() > Simulator::Now().GetTimeStep())  // not available now by rate limiting
                 continue;
             // Check if the flow has been blocked by PFC
             {
@@ -153,7 +159,7 @@ int RdmaEgressQueue::GetNextQindex(bool paused[]) {
             return (qIndex + m_rrlast) % fcount;
         }
     }
-    return -1024;
+    return -1024;       // 被pause，或者窗口不允许
 }
 
 int RdmaEgressQueue::GetLastQueue() { return m_qlast; }
@@ -281,7 +287,7 @@ void QbbNetDevice::DequeueAndTransmit(void) {
     Ptr<Packet> p;
     if (m_node->GetNodeType() == 0) {  // server
         int qIndex = m_rdmaEQ->GetNextQindex(m_paused);     // 找到下一个可以发送数据包的QP
-        if (qIndex != -1024) {
+        if (qIndex != -1024) {   // 有包
             if (qIndex == -1) {  // high prio
                 p = m_rdmaEQ->DequeueQindex(qIndex);        // 生成数据包
                 CustomHeader ch(CustomHeader::L2_Header | CustomHeader::L3_Header | CustomHeader::L4_Header);
@@ -292,7 +298,7 @@ void QbbNetDevice::DequeueAndTransmit(void) {
                 TransmitStart(p);
                 return;
             }
-            // a qp dequeue a packet
+            // a (normal) qp dequeue a packet
             Ptr<RdmaQueuePair> lastQp = m_rdmaEQ->GetQp(qIndex);
             p = m_rdmaEQ->DequeueQindex(qIndex);
             CustomHeader ch(CustomHeader::L2_Header | CustomHeader::L3_Header | CustomHeader::L4_Header);
