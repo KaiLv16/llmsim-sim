@@ -307,14 +307,12 @@ int RdmaHw::ReceiveUdp(Ptr<Packet> p, CustomHeader &ch) {
     uint32_t payload_size = p->GetSize() - ch.GetSerializedSize();
     // printf("receive packet size %d.\n", payload_size);
 
-    // find corresponding rx queue pair
-    Ptr<RdmaRxQueuePair> rxQp =
-        GetRxQp(ch.dip, ch.sip, ch.udp.dport, ch.udp.sport, ch.udp.pg, true);
-    if (rxQp == NULL) {
+    // find corresponding rx queue pair. If not exist, create one.
+    Ptr<RdmaRxQueuePair> rxQp = GetRxQp(ch.dip, ch.sip, ch.udp.dport, ch.udp.sport, ch.udp.pg, true);
+    if (rxQp == NULL) {     // 创建失败
         uint64_t rxKey = GetRxQpKey(ch.sip, ch.udp.sport, ch.udp.dport, ch.udp.pg);
         if (akashic_RxQp.find(rxKey) != akashic_RxQp.end()) {
-            // printf("[GetRxQPUDP] Akashic access: %u(%d) -> %u(%d)\n", this->m_node->GetId(),
-            // ch.udp.dport, ch.sip, ch.udp.sport);
+            // printf("[GetRxQPUDP] Akashic access: %u(%d) -> %u(%d)\n", this->m_node->GetId(), ch.udp.dport, ch.sip, ch.udp.sport);
             return 1;  // just drop
         } else {
             printf("ERROR: UDP NIC cannot find the flow\n");
@@ -350,7 +348,7 @@ int RdmaHw::ReceiveUdp(Ptr<Packet> p, CustomHeader &ch) {
         seqh.SetIntHeader(ch.udp.ih);
 
         if (m_irn) {
-            if (x == 2) {
+            if (x == 2) {   // 仍然在 loss recovery mode
                 seqh.SetIrnNack(ch.udp.seq);
                 seqh.SetIrnNackSize(payload_size);
             } else {
@@ -483,7 +481,7 @@ int RdmaHw::ReceiveAck(Ptr<Packet> p, CustomHeader &ch) {
         if (!m_backto0) {
             qp->Acknowledge(seq);
         } else {
-            uint32_t goback_seq = seq / m_chunk * m_chunk;
+            uint32_t goback_seq = seq / m_chunk * m_chunk;   // 默认是 4000
             qp->Acknowledge(goback_seq);
         }
         if (qp->irn.m_enabled) {
@@ -616,21 +614,22 @@ int RdmaHw::Receive(Ptr<Packet> p, CustomHeader &ch) {
  */
 int RdmaHw::ReceiverCheckSeq(uint32_t seq, Ptr<RdmaRxQueuePair> q, uint32_t size, bool &cnp) {
     uint32_t expected = q->ReceiverNextExpectedSeq;
+    // 数据包等于下界，或者与下界有部分重叠
     if (seq == expected || (seq < expected && seq + size >= expected)) {    //意味着可以移动window下界。
         if (m_irn) {
-            if (q->m_milestone_rx < seq + size) 
+            if (q->m_milestone_rx < seq + size) {
                 q->m_milestone_rx = seq + size;
+            }
             q->ReceiverNextExpectedSeq += size - (expected - seq);
             {
                 uint32_t sack_seq, sack_len;
-                if (q->m_irn_sack_.peekFrontBlock(&sack_seq, &sack_len)) {
+                if (q->m_irn_sack_.peekFrontBlock(&sack_seq, &sack_len)) {  // 序列号最小的 乱序block 的 乱序seq和size
                     if (sack_seq <= q->ReceiverNextExpectedSeq)
-                        q->ReceiverNextExpectedSeq +=
-                            (sack_len - (q->ReceiverNextExpectedSeq - sack_seq));
+                        q->ReceiverNextExpectedSeq += (sack_len - (q->ReceiverNextExpectedSeq - sack_seq));
                 }
             }
             size_t progress = q->m_irn_sack_.discardUpTo(q->ReceiverNextExpectedSeq);
-            if (q->m_irn_sack_.IsEmpty()) {
+            if (q->m_irn_sack_.IsEmpty()) {  // 乱序块清空了
                 return 6;  // This generates NACK, but actually functions as an ACK (indicates all
                            // packet has been received)
             } else {
@@ -638,7 +637,7 @@ int RdmaHw::ReceiverCheckSeq(uint32_t seq, Ptr<RdmaRxQueuePair> q, uint32_t size
                 return 2;  // Still in loss recovery mode of IRN
             }
             return 0;  // should not reach here
-        }
+        }   // irn stops here
 
         q->ReceiverNextExpectedSeq += size - (expected - seq);
         if (q->ReceiverNextExpectedSeq >= q->m_milestone_rx) {
@@ -702,6 +701,8 @@ int RdmaHw::ReceiverCheckSeq(uint32_t seq, Ptr<RdmaRxQueuePair> q, uint32_t size
                     * with a logically earlier PSN, the responder shall cease responding
                     * to the original request and shall begin responding to the duplicate request
                     * with the logically earlier PSN.
+                    * 当响应方正在处理某个请求时，如果收到一个PSN更早的重复请求，那么响应方必须停止处理
+                    * 当前请求，转而去处理PSN较早的那个请求。这样确保处理的顺序严格按照PSN进行
                     */
     }
 }

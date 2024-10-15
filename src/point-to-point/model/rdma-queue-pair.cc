@@ -244,7 +244,8 @@ std::ostream& operator<<(std::ostream& os, const IrnSackManager& im) {
     return os;
 }
 
-// put blocks
+// put blocks into m_data
+// 先添加新加入的部分小块，然后再 merge
 void IrnSackManager::sack(uint32_t seq, uint32_t sz) {
     if (!sz) return;
     NS_LOG_LOGIC("Flow " << socketId << " : Inserting Block " << seq << "-" << (seq + sz));
@@ -255,13 +256,15 @@ void IrnSackManager::sack(uint32_t seq, uint32_t sz) {
         uint32_t blockBegin = it->first;             // inclusive
         uint32_t blockEnd = it->first + it->second;  // exclusive
 
-        if (blockBegin <= seq && seqEnd <= blockEnd) {
+        if (blockBegin <= seq && seqEnd <= blockEnd) {  // 完全被已接收的data包含
             // seq-seqEnd is included inside block-blockEnd
             return;
         } else if (seq < blockBegin && blockEnd < seqEnd) {
             // block-blockEnd is included inside Endseq-seqEnd
             // first segment : seq - blockBegin
-            // second segment : blockEnd - seqEnd
+            // second segment : blockEnd - seqEnd  （把这个segment交给下一个for循环）
+            // 在当前迭代器 it 之前插入一个新元素，但迭代器 it 并没有被推进到下一个位置，在下一个循环中它仍然指向相同的位置
+            // 于是 second segment 在下一次for循环的下下个分支被插入
             m_data.insert(it, std::pair<uint32_t, uint32_t>(seq, blockBegin - seq));
             NS_LOG_LOGIC("Flow " << socketId << " : Inserting Seg " << seq << "-" << blockBegin);
             seq = blockEnd;
@@ -270,11 +273,10 @@ void IrnSackManager::sack(uint32_t seq, uint32_t sz) {
         } else if (seq < blockBegin && seqEnd <= blockBegin) {
             // seq-seqEnd is mutually exclusive to block-blockEnd, and smaller than block-blockEnd
             m_data.insert(it, std::pair<uint32_t, uint32_t>(seq, sz));
-            NS_LOG_LOGIC("Flow " << socketId << " : Inserting Seg (Mutex)" << seq << "-"
-                                 << (seq + sz));
+            NS_LOG_LOGIC("Flow " << socketId << " : Inserting Seg (Mutex)" << seq << "-" << (seq + sz));
             sz = 0;
             break;
-        } else if (blockBegin <= seq && seq <= blockEnd && blockEnd < seqEnd) {
+        } else if (blockBegin <= seq && blockEnd >= seq && blockEnd < seqEnd) {
             // front part of seq-seqEnd is overlapped
             // new segment : blockEnd - seqEnd
             seq = blockEnd;
@@ -361,6 +363,8 @@ bool IrnSackManager::blockExists(uint32_t seq, uint32_t size) {
     }
     return false;
 }
+
+// 找到序列号最小的起始乱序块和长度
 bool IrnSackManager::peekFrontBlock(uint32_t* pseq, uint32_t* psize) {
     NS_ASSERT(pseq);
     NS_ASSERT(psize);

@@ -34,9 +34,10 @@ enum CcMode {
     CC_MODE_UNDEFINED = 0,
 };
 
+// 维护乱序列表，但是乱序窗口大小不是在这里。
 class IrnSackManager {
    private:
-    std::list<std::pair<uint32_t, uint32_t>> m_data;
+    std::list<std::pair<uint32_t, uint32_t>> m_data;   // 序列号 + 长度
 
    public:
     int socketId{-1};
@@ -189,7 +190,7 @@ class RdmaQueuePair : public Object {
         std::cout << Simulator::Now() << " Flow " << m_flow_id << ": Calling CanIrnTransmit(), ";
         uint64_t len_left = m_size >= snd_nxt ? m_size - snd_nxt : 0;
         return !irn.m_enabled ||        // 不是IRN（不归IRN管）
-               (GetIrnBytesInFlight() + ((len_left > mtu) ? mtu : len_left)) < irn.m_bdp ||  // 限制在发数据包小于BDP
+               (GetIrnBytesInFlight() + ((len_left > mtu) ? mtu : len_left)) < irn.m_bdp ||  // 在途数据包小于BDP
                (snd_nxt < irn.m_highest_ack + irn.m_bdp);       // 在途数据包不能太小（小于BDP）？
     }
 };
