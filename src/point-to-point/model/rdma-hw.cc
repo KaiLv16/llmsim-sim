@@ -537,7 +537,9 @@ int RdmaHw::ReceiveAck(Ptr<Packet> p, CustomHeader &ch) {
             qp->m_retransmit.Cancel();
             // std::cout << "qp->m_retransmit.Cancel()" << std::endl;
         }
-        // std::cout << "RdmaHw::ReceiveAck() calls GetRto()" <<std::endl;
+#if (SLB_DEBUG == true)
+        std::cout << "RdmaHw::ReceiveAck() calls GetRto()" <<std::endl;
+# endif
         Time qp_mtu = qp->GetRto(m_mtu);
         qp->m_retransmit = Simulator::Schedule(qp_mtu, &RdmaHw::HandleTimeout, this, qp, qp_mtu);
     }
@@ -661,7 +663,7 @@ int RdmaHw::ReceiverCheckSeq(uint32_t seq, Ptr<RdmaRxQueuePair> q, uint32_t size
             q->m_nackTimer = Simulator::Now() + MicroSeconds(m_nack_interval);
             q->m_irn_sack_.sack(seq, size);  // set SACK
             NS_ASSERT(q->m_irn_sack_.discardUpTo(expected) == 0);  // SACK blocks must be larger than expected
-            cnp = true;    // XXX: out-of-order should accompany with CNP (?) TODO: Check on CX6
+            cnp = false;    // XXX: out-of-order should accompany with CNP (?) TODO: Check on CX6
             return 2;      // generate SACK
         }
         if (Simulator::Now() >= q->m_nackTimer || q->m_lastNACK != expected) {  // new NACK
@@ -670,7 +672,7 @@ int RdmaHw::ReceiverCheckSeq(uint32_t seq, Ptr<RdmaRxQueuePair> q, uint32_t size
             if (m_backto0) {
                 q->ReceiverNextExpectedSeq = q->ReceiverNextExpectedSeq / m_chunk * m_chunk;
             }
-            cnp = true;  // XXX: out-of-order should accompany with CNP (?) TODO: Check on CX6
+            cnp = false;  // XXX: out-of-order should accompany with CNP (?) TODO: Check on CX6
             return 2;
         } else {
             // skip to send NACK
@@ -877,7 +879,17 @@ void RdmaHw::PktSent(Ptr<RdmaQueuePair> qp, Ptr<Packet> pkt, Time interframeGap)
             if (qp->m_retransmit.IsRunning()) {
                 qp->m_retransmit.Cancel();
             }
-            // std::cout << "RdmaHw::PktSent() calls GetRto()" <<std::endl;
+# if (SLB_DEBUG == true)
+            std::cout << "RdmaHw::PktSent() calls GetRto(), " << "ratebound: "<< m_rateBound 
+                << " win: " << qp->m_win       // bound of on-the-fly packets
+                << " baseRtt: " << qp->m_baseRtt   // base RTT of this qp
+                << " m_nextAvail: " << qp->m_nextAvail     //< Soonest time of next send
+                << " wp: " << qp->wp          // current window of packets
+                << " timeout: " << qp->m_timeout
+                << " var_win: " << m_var_win
+                << " qp.irn.bdp: " << qp->irn.m_bdp
+                <<std::endl;
+# endif
             Time qp_mtu = qp->GetRto(m_mtu);
             qp->m_retransmit = Simulator::Schedule(qp_mtu, &RdmaHw::HandleTimeout, this, qp, qp_mtu);
         }

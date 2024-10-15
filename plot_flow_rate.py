@@ -49,6 +49,7 @@ mode = 'recv'
 args = parse_args()
 
 config_ID = args.configID
+appendnx = '_156000'
 
 # config_ID = 'timely(7)_fecmp(0)_pfc1_irn0'
 
@@ -56,7 +57,7 @@ config_ID = args.configID
 #     config_ID = file.readline().strip()
 
 # 确保目录存在，os.makedirs() 可以递归创建目录，如果目录已存在则不报错
-os.makedirs(f"results/{config_ID}", exist_ok=True)
+os.makedirs(f"results/{config_ID}{appendnx}", exist_ok=True)
 
 def read_flowid_from_file(filename):
     with open(filename, 'r') as file:
@@ -89,7 +90,7 @@ def read_flowid_from_file(filename):
 
 
 if use_pkl == False or not os.path.exists(f'results/{config_ID}/flow_send_rate.pkl'):
-    with open(f'mix/output/{config_ID}/{config_ID}_snd_rcv_record_file.txt', 'r') as file:
+    with open(f'mix/output/{config_ID}{appendnx}/{config_ID}_snd_rcv_record_file.txt', 'r') as file:
         for line in file:
             if 'do spray:' in line:
                 continue
@@ -153,7 +154,7 @@ if use_pkl == False or not os.path.exists(f'results/{config_ID}/flow_send_rate.p
         if (v[0], v[1]) not in flow_path[k[0]]['recv'][k[1]]:
             flow_path[k[0]]['recv'][k[1]].insert(0, (v[0], v[1]))
 
-    with open(f'results/{config_ID}/flow_path_output.txt', 'w') as file:
+    with open(f'results/{config_ID}{appendnx}/flow_path_output.txt', 'w') as file:
         # 遍历 flow_path 按 flow_id 写入文件
         for flow_id in sorted(flow_path.keys()):
             flow_data = flow_path[flow_id]
@@ -192,19 +193,19 @@ if use_pkl == False or not os.path.exists(f'results/{config_ID}/flow_send_rate.p
                 flow_recv_rate[flowid_type][index] += pkt_size  # 在该时间区间内累加数据包大小
 
     # 保存 flow_send_rate 到文件
-    with open(f'results/{config_ID}/flow_send_rate.pkl', 'wb') as file:
+    with open(f'results/{config_ID}{appendnx}/flow_send_rate.pkl', 'wb') as file:
         pickle.dump(flow_send_rate, file)
 
-    with open(f'results/{config_ID}/flow_recv_rate.pkl', 'wb') as file:
+    with open(f'results/{config_ID}{appendnx}/flow_recv_rate.pkl', 'wb') as file:
         pickle.dump(flow_recv_rate, file)
 
 else:
     # 从文件中读取 flow_send_rate
-    with open(f'results/{config_ID}/flow_send_rate.pkl', 'rb') as file:
+    with open(f'results/{config_ID}{appendnx}/flow_send_rate.pkl', 'rb') as file:
         flow_send_rate = pickle.load(file)
     
     # 从文件中读取 flow_recv_rate
-    with open(f'results/{config_ID}/flow_recv_rate.pkl', 'rb') as file:
+    with open(f'results/{config_ID}{appendnx}/flow_recv_rate.pkl', 'rb') as file:
         flow_recv_rate = pickle.load(file)
 
 print('aaa')
@@ -313,7 +314,7 @@ plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.1), ncol=4)
 plt.grid(True)
 
 # 保存为PDF，不裁切边界
-plt.savefig(f'results/{config_ID}/flow_rates.pdf', format='pdf', bbox_inches='tight', pad_inches=0.1)
+plt.savefig(f'results/{config_ID}{appendnx}/flow_rates.pdf', format='pdf', bbox_inches='tight', pad_inches=0.1)
 
 # plt.savefig(f'results/flow_rates_{args.x_min}_{args.x_max}.pdf', format='pdf', bbox_inches='tight', pad_inches=0.1)
 

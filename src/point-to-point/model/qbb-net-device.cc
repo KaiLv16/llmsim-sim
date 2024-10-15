@@ -124,7 +124,9 @@ int RdmaEgressQueue::GetNextQindex(bool paused[]) {
 
         bool is_win_bound = qp->IsWinBound();
         bool can_irn_transmit = qp->CanIrnTransmit(m_mtu);
+# if (SLB_DEBUG == true)
         std::cout << Simulator::Now() << " Flow " << qp->m_flow_id << ": IsWinBound(): " << is_win_bound << "; CanIrnTransmit(" << m_mtu << ") = " << can_irn_transmit << "\n";
+# endif
         bool cond_window_allowed = (!is_win_bound && (!qp->irn.m_enabled || can_irn_transmit));
         bool cond2 = (qp->GetBytesLeft() > 0 && cond_window_allowed);   // 窗口机制允许
 

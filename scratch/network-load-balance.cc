@@ -1964,6 +1964,22 @@ int main(int argc, char *argv[]) {
     std::map<std::string, uint32_t> topo2bdpMap;
     topo2bdpMap[std::string("leaf_spine_128_100G_OS2")] = 104000;  // RTT=8320
     topo2bdpMap[std::string("fat_k8_100G_OS2")] = 156000;      // RTT=12480 --> all 100G links
+
+
+    // 在异构网络场景下，原有的map不能满足需求
+    std::map<std::pair<uint32_t, uint32_t>, uint32_t> nodepair2bdpMap;
+    /*
+        // 定义两个节点
+        uint32_t src_node = 1;
+        uint32_t dst_node = 2;
+        
+        // 插入一个 key (src_node, dst_node) 对应的值
+        nodepair2bdpMap[std::make_pair(src_node, dst_node)] = 100;
+        
+        // 访问这个 key 的值
+        uint32_t bdp = nodepair2bdpMap[std::make_pair(src_node, dst_node)];
+    */
+
     // // 计算跨AZ和AZ内的BDP
     // uint32_t rtt_cross_az = max_delay * 2;      // ns，1-hop * 2
     // uint32_t bw_cross_az = 100;     // Gb
@@ -1975,7 +1991,8 @@ int main(int argc, char *argv[]) {
     // topo2bdpMap[std::string("dumbbell_within_AZ")] = rtt_cross_az * bw_cross_az;
     // topo2bdpMap[std::string("dumbbell")] = topo2bdpMap[std::string("dumbbell_cross_AZ")] 
     //                                     + 2 * topo2bdpMap[std::string("dumbbell_within_AZ")] / 2;
-    topo2bdpMap[std::string("dumbbell")] = 125157000;      // 手动计算：源DC 3跳 + DC间一跳 + 目的DC 3跳，txdelay只计算oneway（将错就错吧）
+    // topo2bdpMap[std::string("dumbbell")] = 125157000;      // 手动计算：源DC 3跳 + DC间一跳 + 目的DC 3跳，txdelay只计算oneway
+    topo2bdpMap[std::string("dumbbell")] = 1560000;
 
     // topology_file
     bool found_topo2bdpMap = false;
@@ -2026,7 +2043,7 @@ int main(int argc, char *argv[]) {
             rdmaHw->SetAttribute("IrnRtoHigh", TimeValue(MicroSeconds(1000000)));  // 1s
             rdmaHw->SetAttribute("IrnRtoLow", TimeValue(MicroSeconds(1000000)));   // 1s
             rdmaHw->SetAttribute("IrnBdp", UintegerValue(irn_bdp_lookup));
-            rdmaHw->SetAttribute("L2Timeout", TimeValue(MicroSeconds(1000000)));
+            rdmaHw->SetAttribute("L2Timeout", TimeValue(MicroSeconds(1000000)));    // 超时 1s
             // Monitoring CNP Marking frequency of DCQCN
             if (cc_mode == 1) {
                 Simulator::Schedule(NanoSeconds(cnp_mon_start), &cnp_freq_monitoring, cnp_output,

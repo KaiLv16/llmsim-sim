@@ -35,6 +35,7 @@
 namespace ns3 {
 
 #define SLB_DEBUG (false)
+#define LLM_DEBUG (false)
 
 #define PARSE_FIVE_TUPLE(ch)                                                    \
     DEPARSE_FIVE_TUPLE(std::to_string(Settings::hostIp2IdMap[ch.sip]),          \
