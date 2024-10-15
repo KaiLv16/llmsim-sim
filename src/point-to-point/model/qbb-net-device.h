@@ -208,7 +208,7 @@ public:
 	RdmaLinkDownCb m_rdmaLinkDownCb;
 	// callback for sent a packet
 	typedef Callback<void, Ptr<RdmaQueuePair>, Ptr<Packet>, Time> RdmaPktSent;
-	RdmaPktSent m_rdmaPktSent;
+	RdmaPktSent m_rdmaPktSent;  // call RdmaHw::PktSent
 
 	Ptr<RdmaEgressQueue> GetRdmaQueue();
 	void TakeDown(); // take down this device

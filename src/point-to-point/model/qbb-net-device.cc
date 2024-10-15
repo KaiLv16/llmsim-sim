@@ -310,7 +310,7 @@ void QbbNetDevice::DequeueAndTransmit(void) {
             m_traceSndRcv(1, get_pkt_status(ch.l3Prot), p->GetSize(), ch.udp.flow_id, ch.udp.seq);
             TransmitStart(p);
             
-            // update for the next avail time
+            // update for the next avail time (UpdateNextAvail() and Update retrans Timer)
             m_rdmaPktSent(lastQp, p, m_tInterframeGap);
         } else {  // no packet to send
             NS_LOG_INFO("PAUSE prohibits send at node " << m_node->GetId());
@@ -429,11 +429,11 @@ void QbbNetDevice::Receive(Ptr<Packet> packet) {
             packet->AddPacketTag(FlowIdTag(m_ifIndex));
             m_node->SwitchReceiveFromDevice(this, packet, ch);
         } else {  // NIC
-            // send to RdmaHw
+            // send to RdmaHw (call RdmaHw::Receive)
             int ret = m_rdmaReceiveCb(packet, ch);  // 正常接收数据包则返回0（不包括PFC）
             // TODO we may based on the ret do something
             if (ret == 0)
-                DoMpiReceive(packet);   // 调用了 PointToPointNetDevice::Receive(p)
+                DoMpiReceive(packet);   // 调用了 PointToPointNetDevice::Receive(p), mainly for tracing
         }
     }
     return;
