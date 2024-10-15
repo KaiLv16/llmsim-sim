@@ -1,6 +1,8 @@
 #ifndef RDMA_QUEUE_PAIR_H
 #define RDMA_QUEUE_PAIR_H
 
+
+#include <ns3/simulator.h>   // 用于添加与 Simulator::now()相关的依赖
 #include <ns3/custom-header.h>
 #include <ns3/data-rate.h>
 #include <ns3/event-id.h>
@@ -164,7 +166,7 @@ class RdmaQueuePair : public Object {
     // max_seq - irn.m_highest_ack。需要看一下highest_ack是选择性ACK吗，还是有终端也可以？
     inline uint32_t GetIrnBytesInFlight() const {
         // IRN do not consider SACKed segments for simplicity
-        std::cout << "rdmaQP::GetIrnBytesInFlight()   irn.m_max_seq: " << irn.m_max_seq << " irn.m_highest_ack: " <<  irn.m_highest_ack << std::endl;
+        std::cout << Simulator::Now() << "Flow " << m_flow_id << " call GetIrnBytesInFlight()   irn.m_max_seq: " << irn.m_max_seq << " irn.m_highest_ack: " <<  irn.m_highest_ack << std::endl;
         return irn.m_max_seq - irn.m_highest_ack;
     }
 
@@ -172,10 +174,10 @@ class RdmaQueuePair : public Object {
         // std::cout << "mtu: " << mtu << ". Calling GetRto()\n";
         if (irn.m_enabled) {
             if (GetIrnBytesInFlight() >= 3 * mtu) {
-                std::cout << "return irn.m_rtoHigh = " << irn.m_rtoHigh <<std::endl;
+                std::cout << Simulator::Now() << "Flow " << m_flow_id << " call GetRto(), return irn.m_rtoHigh = " << irn.m_rtoHigh <<std::endl;
                 return irn.m_rtoHigh;
             }
-            std::cout << "return irn.m_rtoLow = " << irn.m_rtoLow <<std::endl;
+            std::cout << Simulator::Now() << "Flow " << m_flow_id << " call GetRto(), return irn.m_rtoLow = " << irn.m_rtoLow <<std::endl;
             return irn.m_rtoLow;
         } else {
             // std::cout << "return m_timeout = " << m_timeout <<std::endl;
@@ -184,7 +186,7 @@ class RdmaQueuePair : public Object {
     }
     // 滑动窗口逻辑
     inline bool CanIrnTransmit(uint32_t mtu) const {
-        printf("Calling CanIrnTransmit(%u)  ", mtu);
+        std::cout << Simulator::Now() << "Flow " << m_flow_id << "call CanIrnTransmit(" << mtu << ")\n";
         uint64_t len_left = m_size >= snd_nxt ? m_size - snd_nxt : 0;
 
         return !irn.m_enabled ||        // 不是IRN（不归IRN管）

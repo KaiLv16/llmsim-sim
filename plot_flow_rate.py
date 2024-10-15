@@ -91,6 +91,8 @@ def read_flowid_from_file(filename):
 if use_pkl == False or not os.path.exists(f'results/{config_ID}/flow_send_rate.pkl'):
     with open(f'mix/output/{config_ID}/{config_ID}_snd_rcv_record_file.txt', 'r') as file:
         for line in file:
+            if 'do spray:' in line:
+                continue
             # print(line)
             parts = line.split()
             timestamp_ns = int(parts[0][:-1]) - 2000000000  # 时间（ns）  # 去掉冒号

@@ -525,15 +525,15 @@ void RelationalFlowEnd(uint32_t flowid) {
     // 标记该流已发送
     currentFlow.sent = true;
     string ftype = (currentFlow.pg == -1)? " Dep " : " Flow ";
-    std::cerr << Simulator::Now() << ftype << currentFlow.id << " Finish. ";
+    std::cerr << Simulator::Now() << ftype << currentFlow.id << " Finish.\n";
     // 处理 invoke_flow 中的流，将其依赖关系减1
     for (uint32_t invokedFlowId : currentFlow.invokeFlows) {
         dependencies[invokedFlowId]--;
         if (dependencies[invokedFlowId] == 0) {
             readyQueue.push(invokedFlowId);
             Flow& newFlow = flowMap[invokedFlowId];
-            string ftype2 = (newFlow.pg == -1)? "Dep " : "Flow ";
-            std::cerr << ftype2 << invokedFlowId << " becomes Ready. ";
+            string ftype2 = (newFlow.pg == -1)? " Dep " : " Flow ";
+            std::cerr << Simulator::Now() << ftype2 << invokedFlowId << " becomes Ready.\n";
         }
     }
     std::cerr << std::endl;

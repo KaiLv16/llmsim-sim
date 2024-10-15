@@ -107,6 +107,12 @@ python3 plot_flow_rate.py --x_min 19 --x_max 28 --type send
 python3 plot_flow_rate.py --type send --configID 'dcqcn(1)_fecmp(0)_pfc1_irn0'
 ```
 
+#### 开发tips
+
+在使用vscode开发时，可以把以下字段添加到全局搜索栏：
+```
+config/, src/point-to-point/, scratch/, autorun.sh, run.py, plot_flow_rate.py
+```
 
 ## [Credit to] 
 
