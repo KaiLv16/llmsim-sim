@@ -1991,8 +1991,8 @@ int main(int argc, char *argv[]) {
     // topo2bdpMap[std::string("dumbbell_within_AZ")] = rtt_cross_az * bw_cross_az;
     // topo2bdpMap[std::string("dumbbell")] = topo2bdpMap[std::string("dumbbell_cross_AZ")] 
     //                                     + 2 * topo2bdpMap[std::string("dumbbell_within_AZ")] / 2;
-    // topo2bdpMap[std::string("dumbbell")] = 125157000;      // 手动计算：源DC 3跳 + DC间一跳 + 目的DC 3跳，txdelay只计算oneway
-    topo2bdpMap[std::string("dumbbell")] = 1560000;
+    topo2bdpMap[std::string("dumbbell")] = 25157000;      // 手动计算：源DC 3跳 + DC间一跳 + 目的DC 3跳，txdelay只计算oneway
+    // topo2bdpMap[std::string("dumbbell")] = 1560000;
 
     // topology_file
     bool found_topo2bdpMap = false;

@@ -338,6 +338,10 @@ int RdmaHw::ReceiveUdp(Ptr<Packet> p, CustomHeader &ch) {
     bool cnp_check = false;
     int x = ReceiverCheckSeq(ch.udp.seq, rxQp, payload_size, cnp_check);
 
+    /* 1: 生成 ACK
+     * 2: IRN 的 loss recovery
+     * 6：NACK 但功能是 ACK
+     */
     if (x == 1 || x == 2 || x == 6) {  // generate ACK or NACK
         qbbHeader seqh;
         seqh.SetSeq(rxQp->ReceiverNextExpectedSeq);
@@ -357,11 +361,12 @@ int RdmaHw::ReceiveUdp(Ptr<Packet> p, CustomHeader &ch) {
             }
         }
 
+        // 不管是GBN还是IRN，都生成CNP（收到ECN，或者GBN收到不连续数据包）
         if (ecnbits || cnp_check) {  // NACK accompanies with CNP packet
             // XXX monitor CNP generation at sender
-            cnp_total++;
-            if (ecnbits) cnp_by_ecn++;
-            if (cnp_check) cnp_by_ooo++;
+            cnp_total++;                    // 统计
+            if (ecnbits) cnp_by_ecn++;      // 统计
+            if (cnp_check) cnp_by_ooo++;    // 统计
             seqh.SetCnp();
         }
 
@@ -371,7 +376,10 @@ int RdmaHw::ReceiveUdp(Ptr<Packet> p, CustomHeader &ch) {
         Ipv4Header head;  // Prepare IPv4 header
         head.SetDestination(Ipv4Address(ch.sip));
         head.SetSource(Ipv4Address(ch.dip));
+
+        // 这里只设置了ACK / NACK，根本不涉及CNP包
         head.SetProtocol(x == 1 ? 0xFC : 0xFD);  // ack=0xFC nack=0xFD
+
         head.SetTtl(64);
         head.SetPayloadSize(newp->GetSize());
         head.SetIdentification(rxQp->m_ipid++);
@@ -450,6 +458,7 @@ int RdmaHw::ReceiveCnp(Ptr<Packet> p, CustomHeader &ch) {
     return 0;
 }
 
+// called by ACK or NACK (CNP is embedded into this)
 int RdmaHw::ReceiveAck(Ptr<Packet> p, CustomHeader &ch) {
     uint16_t qIndex = ch.ack.pg;
     uint16_t port = ch.ack.dport;   // sport for this host
@@ -609,10 +618,16 @@ int RdmaHw::Receive(Ptr<Packet> p, CustomHeader &ch) {
  *
  * @return int
  * 0: should not reach here
+ * 
  * 1: generate ACK
+ * 
  * 2: still in loss recovery of IRN
+ * 
  * 4: OoO, but skip to send NACK as it is already NACKed.
+ * 
  * 6: NACK but functionality is ACK (indicating all packets are received)
+ * 
+ * 当收到不连续数据包（seq > expected）时，我们让GBN同步返回CNP，而IRN不这么做
  */
 int RdmaHw::ReceiverCheckSeq(uint32_t seq, Ptr<RdmaRxQueuePair> q, uint32_t size, bool &cnp) {
     uint32_t expected = q->ReceiverNextExpectedSeq;
@@ -672,7 +687,7 @@ int RdmaHw::ReceiverCheckSeq(uint32_t seq, Ptr<RdmaRxQueuePair> q, uint32_t size
             if (m_backto0) {
                 q->ReceiverNextExpectedSeq = q->ReceiverNextExpectedSeq / m_chunk * m_chunk;
             }
-            cnp = false;  // XXX: out-of-order should accompany with CNP (?) TODO: Check on CX6
+            cnp = true;  // XXX: out-of-order should accompany with CNP (?) TODO: Check on CX6
             return 2;
         } else {
             // skip to send NACK

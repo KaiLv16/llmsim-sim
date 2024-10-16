@@ -17,6 +17,7 @@ def parse_args():
     parser.add_argument('--threshold', type=float, default=5, help='曲线最大值的阈值，超过该值时才显示图例，默认值为 0.5')
     parser.add_argument('--type', type=str, default='send_recv', help='指定绘制的曲线属于 \'send\' 还是 \'recv\' 。默认是\'send_recv\'')
     parser.add_argument('--configID', type=str, default='timely(7)_fecmp(0)_pfc1_irn0', help='类似 mix/last_param.txt 的内容')
+    parser.add_argument('--append', type=str, default='', help='类似_156000')
 
     # 解析命令行参数
     args = parser.parse_args()
@@ -49,7 +50,9 @@ mode = 'recv'
 args = parse_args()
 
 config_ID = args.configID
-appendnx = '_156000'
+appendnx = args.append
+print(f"results/{config_ID}{appendnx}")
+# appendnx = ''
 
 # config_ID = 'timely(7)_fecmp(0)_pfc1_irn0'
 
@@ -89,7 +92,7 @@ def read_flowid_from_file(filename):
             return None  # 如果i或j超出文件行数范围，返回None
 
 
-if use_pkl == False or not os.path.exists(f'results/{config_ID}/flow_send_rate.pkl'):
+if use_pkl == False or not os.path.exists(f'results/{config_ID}{appendnx}/flow_send_rate.pkl'):
     with open(f'mix/output/{config_ID}{appendnx}/{config_ID}_snd_rcv_record_file.txt', 'r') as file:
         for line in file:
             if 'do spray:' in line:
