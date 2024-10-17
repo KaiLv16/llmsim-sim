@@ -126,6 +126,7 @@ void RdmaQueuePair::Acknowledge(uint64_t ack) {
     }
 }
 
+// 这个在SR场景下还适用吗？感觉也没有差很多emmm，选择重传的那部分包总不能占很大比例吧
 uint64_t RdmaQueuePair::GetOnTheFly() {
     NS_ASSERT(snd_nxt >= snd_una);
     return snd_nxt - snd_una;

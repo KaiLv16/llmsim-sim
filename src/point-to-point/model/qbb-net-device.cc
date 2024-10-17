@@ -122,7 +122,7 @@ int RdmaEgressQueue::GetNextQindex(bool paused[]) {
 
         bool cond1 = !paused[qp->m_pg];         // 未被 pause
 
-        bool is_win_bound = qp->IsWinBound();
+        bool is_win_bound = qp->IsWinBound();   // 在途数据包数量 > win/varwin
         bool can_irn_transmit = qp->CanIrnTransmit(m_mtu);
 # if (SLB_DEBUG == true)
         std::cout << Simulator::Now() << " Flow " << qp->m_flow_id << ": IsWinBound(): " << is_win_bound << "; CanIrnTransmit(" << m_mtu << ") = " << can_irn_transmit << "\n";

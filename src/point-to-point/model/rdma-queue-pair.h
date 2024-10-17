@@ -164,7 +164,7 @@ class RdmaQueuePair : public Object {
 
     uint64_t HpGetCurWin();  // window size calculated from hp.m_curRate, used by HPCC
 
-    // max_seq - irn.m_highest_ack。需要看一下highest_ack是选择性ACK吗，还是有终端也可以？
+    // max_seq - irn.m_highest_ack。需要看一下highest_ack是选择性ACK吗，还是有中断也可以？看上去是不考虑中断的
     inline uint32_t GetIrnBytesInFlight() const {
         // IRN do not consider SACKed segments for simplicity
 #if (SLB_DEBUG == true)

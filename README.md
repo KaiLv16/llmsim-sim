@@ -65,9 +65,9 @@ inline int get_pkt_status(uint32_t l3Prot){
         pkt_type = 0;
     } else if (l3Prot == 0xFF) {  // CNP
         pkt_type = 1;
-    } else if (l3Prot == 0xFD) {  // NACK
+    } else if (l3Prot == 0xFD) {  // NACK（IRN只会返回NACK，干的是选择性ACK的活）
         pkt_type = 2;
-    } else if (l3Prot == 0xFC) {  // ACK
+    } else if (l3Prot == 0xFC) {  // ACK 
         pkt_type = 3;
     } else if (l3Prot == 0xFE) {  // PFC
         pkt_type = 4;

@@ -338,8 +338,9 @@ int RdmaHw::ReceiveUdp(Ptr<Packet> p, CustomHeader &ch) {
     bool cnp_check = false;
     int x = ReceiverCheckSeq(ch.udp.seq, rxQp, payload_size, cnp_check);
 
-    /* 1: 生成 ACK
-     * 2: IRN 的 loss recovery
+    /* 如果是IRN，只会返回0，2，4，6。其中2是SACK，6是NACK。但是SACK使用的是NACK的l3prot，二者仅依靠seq做区分
+     * 1: 生成 ACK
+     * 2: IRN 的 loss recovery，生成SACK
      * 6：NACK 但功能是 ACK
      */
     if (x == 1 || x == 2 || x == 6) {  // generate ACK or NACK
@@ -458,7 +459,7 @@ int RdmaHw::ReceiveCnp(Ptr<Packet> p, CustomHeader &ch) {
     return 0;
 }
 
-// called by ACK or NACK (CNP is embedded into this)
+// called by ACK (0xFC) or NACK (0xFD) (CNP is embedded into this)
 int RdmaHw::ReceiveAck(Ptr<Packet> p, CustomHeader &ch) {
     uint16_t qIndex = ch.ack.pg;
     uint16_t port = ch.ack.dport;   // sport for this host
@@ -488,18 +489,19 @@ int RdmaHw::ReceiveAck(Ptr<Packet> p, CustomHeader &ch) {
         std::cout << "ERROR: shouldn't receive ack\n";
     else {
         if (!m_backto0) {
-            qp->Acknowledge(seq);
+            qp->Acknowledge(seq);   // 修改 qp->snd_una
         } else {
             uint32_t goback_seq = seq / m_chunk * m_chunk;   // 默认是 4000
-            qp->Acknowledge(goback_seq);
+            qp->Acknowledge(goback_seq);    // 修改 qp->snd_una
         }
         if (qp->irn.m_enabled) {
-            // handle NACK
-            NS_ASSERT(ch.l3Prot == 0xFD);
+            // handle NACK（其实也包括SACK）
+            NS_ASSERT(ch.l3Prot == 0xFD);   // IRN 不会返回ACK，只会返回NACK（虽然NACK干的是ACK的活）
 
             // for bdp-fc calculation update m_irn_maxAck
-            if (seq > qp->irn.m_highest_ack) qp->irn.m_highest_ack = seq;
-
+            if (seq > qp->irn.m_highest_ack) {
+                qp->irn.m_highest_ack = seq;
+            }
             if (ch.ack.irnNackSize != 0) {
                 // ch.ack.irnNack contains the seq triggered this NACK
                 qp->irn.m_sack.sack(ch.ack.irnNack, ch.ack.irnNackSize);
@@ -540,6 +542,11 @@ int RdmaHw::ReceiveAck(Ptr<Packet> p, CustomHeader &ch) {
      * The timer does not detect the loss of a particular expected acknowledge
      * packet, but rather simply detects the persistent absence of response
      * packets.
+     * 请求方不需要为每个发送到网络中的请求单独计时，而是在期待响应时开始计时。
+     * 一旦计时开始，只要收到确认包，并且仍有未完成的预期响应，计时器就会重新启动。
+     * 计时器并不会检测某个特定预期确认包的丢失，而是用来检测响应包的持续缺失。
+     * 这段话解释了请求方在期待响应时如何管理超时的机制，它并不关心某个特定确认包是否丢失，
+     * 而是关注整个响应过程是否出现了长时间的延迟或缺失。
      * */
     if (!qp->IsFinished() && qp->GetOnTheFly() > 0) {
         if (qp->m_retransmit.IsRunning()) {
@@ -621,7 +628,7 @@ int RdmaHw::Receive(Ptr<Packet> p, CustomHeader &ch) {
  * 
  * 1: generate ACK
  * 
- * 2: still in loss recovery of IRN
+ * 2: still in loss recovery of IRN，生成SACK
  * 
  * 4: OoO, but skip to send NACK as it is already NACKed.
  * 
