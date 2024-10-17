@@ -26,6 +26,7 @@
 #include <ns3/sim-setting.h>
 #include <ns3/switch-node.h>
 #include <time.h>
+#include <regex>
 
 #include <fstream>
 #include <iostream>
@@ -244,6 +245,7 @@ struct Flow {
     uint32_t lat;
     vector<uint32_t> dependFlows;
     vector<uint32_t> invokeFlows;
+    std::string note; // 新增成员，用于存储 note 内容
     bool sent;
     
     Flow() {
@@ -259,7 +261,7 @@ struct Flow {
         for (int i = 0; i < invokeFlows.size(); i++) {
             printf("%u ", invokeFlows[i]);
         }
-        printf("]\n");
+        printf("], note=%s\n", note.c_str());
     }
 };
 
@@ -374,6 +376,13 @@ void ParseRelationalFlowFile(string fileName) {
                 flow.invokeFlows.push_back(stoi(inv));
             }
         }
+        // 使用正则表达式提取 note 内容
+        std::regex note_regex(R"(note=<([^>]*)>)");
+        std::smatch note_match;
+        if (std::regex_search(line, note_match, note_regex)) {
+            std::string note_content = note_match[1]; // 获取 <xxx> 中的内容
+            flow.note = note_content; // 假设 Flow 类中有一个 string 类型的 note 成员
+        }
         if (cur_flow_num < 40)
             flow.print();
 
@@ -484,8 +493,10 @@ void RelationalFlowStart(uint32_t flowid) {
     dst = node2phynode[vnode2node[currentFlow.dst]];
 
     if (pg == 3) {
+        uint32_t baseTxTime = currentFlow.size * 8 / 100000 + pairRtt[n.Get(src)][n.Get(dst)] / 1000;      // ms 
         std::cerr << Simulator::Now() << " Sending flow " << currentFlow.id << 
-        ": node " << currentFlow.src << " (" << src << ") -> node " << currentFlow.dst << " (" << dst << "), size=" << currentFlow.size << std::endl;
+        ": node " << currentFlow.src << " (" << src << ") -> node " << currentFlow.dst << " (" << dst << 
+        "), note=\"" << currentFlow.note << "\", size=" << currentFlow.size << ", IdealTxtime=" << baseTxTime << "us" << std::endl;
         if (src == dst) {
             std::cerr << "\nSRC node == DST node!\n\n";
         }
