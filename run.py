@@ -404,7 +404,7 @@ def main():
         has_win = 1
         var_win = 1
         use_global_max_win = 0
-        qlen_aware_egress = 1
+        # qlen_aware_egress = 1
 
     # record to history
     simulday = datetime.now().strftime("%m/%d/%y")

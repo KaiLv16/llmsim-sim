@@ -984,7 +984,7 @@ void switch_spray_event_record(FILE *fout, Ptr<SwitchNode> sw, uint32_t port_pic
         std::cout << "Error encountered in switch_spray_event_record(): nexthops.size() < 1" << std::endl;
         return;
     }
-    fprintf(fout, "%lu: switch %u do spray (%s) [", Simulator::Now().GetTimeStep(), sw->GetId(), explain_str);
+    fprintf(fout, "%lu: switch %u do spray (%u, %s) [", Simulator::Now().GetTimeStep(), sw->GetId(), nexthops.size(), explain_str);
     size_t i = 0;
     for (i = 0; i < nsize - 1; ++i) {
         fprintf(fout, "%d, ", nexthops[i]);

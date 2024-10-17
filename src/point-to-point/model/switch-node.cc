@@ -103,21 +103,39 @@ uint32_t SwitchNode::DoLbRamdomSpray(Ptr<const Packet> p, const CustomHeader &ch
     
 }
 
-// 负载感知的 spray
+// 负载感知的 spray:遍历所有端口找到最小队列长度qmin，
+// 并在所有长度小于qmin + alpha（alpha可配置）的队列中随机选取一个作为egress port
 uint32_t SwitchNode::DoLbLoadAwareSpray(Ptr<const Packet> p, const CustomHeader &ch,
-                                  const std::vector<int> &nexthops) {
+                                  const std::vector<int> &nexthops, uint32_t alpha=0) {
     uint32_t min_load_egport = -1;
-    uint32_t min_load = 0xffffffff;
-    for (int i = 0; i < nexthops.size(); i++){
-        if (min_load > CalculateInterfaceLoad(nexthops[i])) {
-            min_load = CalculateInterfaceLoad(nexthops[i]);
-            min_load_egport = nexthops[i];
+    uint32_t qmin = 0xffffffff;
+    std::vector<int> candidates; // 存放满足条件的候选端口
+    // 第一步：找到最小队列长度 qmin
+    for (int i = 0; i < nexthops.size(); i++) {
+        uint32_t load = CalculateInterfaceLoad(nexthops[i]);
+        if (qmin > load) {
+            qmin = load;
         }
     }
-    if (Settings::record_switch_spray == 1) {
-        m_traceSwitchSprayEvent(min_load_egport, nexthops, "loadAware");  // 记录
+    // 第二步：找到所有队列长度小于 qmin + alpha 的端口
+    for (int i = 0; i < nexthops.size(); i++) {
+        uint32_t load = CalculateInterfaceLoad(nexthops[i]);
+        if (load <= qmin + alpha) {
+            candidates.push_back(nexthops[i]);
+        }
     }
-    return min_load_egport;
+    // 第三步：随机选择一个候选端口
+    assert(!candidates.empty() && "Error: No valid candidates found!");
+
+    int random_index = rand() % candidates.size();
+    uint32_t selected_port = candidates[random_index];
+
+    // 记录 spray 事件
+    if (Settings::record_switch_spray == 1) {
+        m_traceSwitchSprayEvent(selected_port, nexthops, "loadAware");  // 记录
+    }
+
+    return selected_port;
 }
 
 /*-----------------CONGA-----------------*/

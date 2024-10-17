@@ -5,6 +5,7 @@
 
 #include <unordered_map>
 #include <unordered_set>
+#include <cassert>  // 包含 assert
 
 #include "qbb-net-device.h"
 #include "switch-mmu.h"
@@ -48,7 +49,7 @@ class SwitchNode : public Node {
     uint32_t DoLbRamdomSpray(Ptr<const Packet> p, const CustomHeader &ch,
                           const std::vector<int> &nexthops);
     uint32_t DoLbLoadAwareSpray(Ptr<const Packet> p, const CustomHeader &ch,
-                          const std::vector<int> &nexthops);
+                          const std::vector<int> &nexthops, uint32_t alpha);
     // DRILL (lb_mode = 2)
     uint32_t DoLbDrill(Ptr<const Packet> p, const CustomHeader &ch,
                        const std::vector<int> &nexthops);     // choose egress port
