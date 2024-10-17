@@ -261,7 +261,7 @@ struct Flow {
         for (int i = 0; i < invokeFlows.size(); i++) {
             printf("%u ", invokeFlows[i]);
         }
-        printf("], note=%s\n", note.c_str());
+        printf("], note=\"%s\"\n", note.c_str());
     }
 };
 
