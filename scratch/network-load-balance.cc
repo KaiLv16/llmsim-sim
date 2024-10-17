@@ -142,6 +142,9 @@ bool clamp_target_rate = false, l2_back_to_zero = false;
 double error_rate_per_link = 0.0;
 uint32_t is_spray = 1;
 uint32_t has_win = 1;
+uint32_t enable_plb = 0;
+uint32_t qlen_aware_egress = 0;
+uint32_t per_qp_window = 0;
 uint32_t global_t = 1;
 uint32_t mi_thresh = 5;
 bool var_win = false, fast_react = true;
@@ -975,13 +978,13 @@ void snd_rcv_record(FILE *fout, Ptr<QbbNetDevice> dev,
             seq);
 }
 
-void switch_spray_event_record(FILE *fout, Ptr<SwitchNode> sw, uint32_t port_picked, const std::vector<int> &nexthops){
+void switch_spray_event_record(FILE *fout, Ptr<SwitchNode> sw, uint32_t port_picked, const std::vector<int> &nexthops, const char *explain_str){
     uint32_t nsize = nexthops.size();
     if (nsize < 1) {
         std::cout << "Error encountered in switch_spray_event_record(): nexthops.size() < 1" << std::endl;
         return;
     }
-    fprintf(fout, "%lu: switch %u do spray: [", Simulator::Now().GetTimeStep(), sw->GetId());
+    fprintf(fout, "%lu: switch %u do spray (%s) [", Simulator::Now().GetTimeStep(), sw->GetId(), explain_str);
     size_t i = 0;
     for (i = 0; i < nsize - 1; ++i) {
         fprintf(fout, "%d, ", nexthops[i]);
@@ -1511,14 +1514,22 @@ int main(int argc, char *argv[]) {
             } else if (key.compare("ROUTING_TABLE_OUTPUT_FILE") == 0) {
                 conf >> routing_table_output_file;
                 std::cerr << "ROUTING_TABLE_OUTPUT_FILE\t\t" << routing_table_output_file << '\n';
-            }            
-             else if (key.compare("HAS_WIN") == 0) {
+            } else if (key.compare("HAS_WIN") == 0) {
                 conf >> has_win;
                 std::cerr << "HAS_WIN\t\t" << has_win << "\n";
             } else if (key.compare("GLOBAL_T") == 0) {
                 conf >> global_t;
                 std::cerr << "GLOBAL_T\t\t" << global_t << '\n';
-            } else if (key.compare("MI_THRESH") == 0) {
+            }
+            else if (key.compare("ENABLE_PLB") == 0) {
+                conf >> enable_plb;
+                std::cerr << "ENABLE_PLB\t\t" << enable_plb << '\n';
+            } else if (key.compare("ENABLE_QLEN_AWARE_EG") == 0) {
+                conf >> qlen_aware_egress;
+                std::cerr << "ENABLE_QLEN_AWARE_EG\t\t" << qlen_aware_egress << '\n';
+            } 
+            
+            else if (key.compare("MI_THRESH") == 0) {
                 conf >> mi_thresh;
                 std::cerr << "MI_THRESH\t\t" << mi_thresh << '\n';
             } else if (key.compare("VAR_WIN") == 0) {
@@ -1723,6 +1734,7 @@ int main(int argc, char *argv[]) {
     Settings::switch_num = switch_num;
     Settings::lb_mode = lb_mode;
     Settings::packet_payload = packet_payload_size;
+
     Settings::record_switch_spray = 1;
     // Settings::MTU = packet_payload_size + 48;  // for simplicity
     /*------------------------------------*/
@@ -1733,6 +1745,8 @@ int main(int argc, char *argv[]) {
         topof >> sid;
         node_type[sid] = 1;
     }
+
+    // configure switch
     for (uint32_t i = 0; i < node_num; i++) {
         if (node_type[i] == 0)
             n.Add(CreateObject<Node>());
@@ -1740,6 +1754,7 @@ int main(int argc, char *argv[]) {
             Ptr<SwitchNode> sw = CreateObject<SwitchNode>();
             n.Add(sw);
             sw->SetAttribute("EcnEnabled", BooleanValue(enable_qcn));
+            sw->SetAttribute("QlenAwareEgressSelection", BooleanValue(bool(qlen_aware_egress)));
         }
     }
     NS_LOG_INFO("Create nodes.");
@@ -2105,7 +2120,6 @@ int main(int argc, char *argv[]) {
             pairBdp[n.Get(j)][n.Get(i)] = bdp;
             pairRtt[n.Get(i)][n.Get(j)] = rtt;
             pairRtt[n.Get(j)][n.Get(i)] = rtt;
-
             if (bdp > maxBdp) 
                 maxBdp = bdp;
                 // std::cout << delay << ", " << txDelay << ", " << rtt << ", " << bw << ", " << bdp << std::endl;
@@ -2116,8 +2130,20 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "maxRtt: %lu, maxBdp: %lu\n", maxRtt, maxBdp);
     // assert(maxBdp == irn_bdp_lookup);
 
+    // for (uint32_t i = 0; i < node_num; i++) {
+    //     if (n.Get(i)->GetNodeType() != 0) 
+    //         continue;
+    //     for (uint32_t j = 0; j < node_num; j++) {
+    //         if (n.Get(j)->GetNodeType() != 0) 
+    //             continue;
+    //         printf("node %u <--> node %u: Bdp=%lu, Rtt=%lu\n", i, j, pairBdp[n.Get(i)][n.Get(j)], pairRtt[n.Get(i)][n.Get(j)]);
+    //     }
+    // }
+    // printf("actively pause, It's time to check RTT and BDP between server nodes\n");
+    // exit(1);
+    
 // 新加开始
-// TODO: Check： 这里的代码有坑啊，必须要在topo文件中把host放在src位置
+// TODO: Check： 必须要在topo文件中把host放在src位置
     std::cout << "Configuring switches" << std::endl;
     /* config ToR Switch */
     for (auto &pair : link_pairs) {     // std::vector<std::pair<uint32_t, uint32_t>> link_pairs;  // src, dst link pairs

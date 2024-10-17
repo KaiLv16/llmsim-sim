@@ -25,6 +25,8 @@ TypeId SwitchNode::GetTypeId(void) {
             .AddConstructor<SwitchNode>()
             .AddAttribute("EcnEnabled", "Enable ECN marking.", BooleanValue(false),
                           MakeBooleanAccessor(&SwitchNode::m_ecnEnabled), MakeBooleanChecker())
+            .AddAttribute("QlenAwareEgressSelection", "QlenAwareEgressSelection.", BooleanValue(false),
+                          MakeBooleanAccessor(&SwitchNode::m_qlenAwareEgress), MakeBooleanChecker())
             .AddAttribute("CcMode", "CC mode.", UintegerValue(0),
                           MakeUintegerAccessor(&SwitchNode::m_ccMode),
                           MakeUintegerChecker<uint32_t>())
@@ -95,21 +97,27 @@ uint32_t SwitchNode::DoLbRamdomSpray(Ptr<const Packet> p, const CustomHeader &ch
     // randomly pick one next hop
     // srand is set in network-load-balance.cc, Line 1182. currently is set to 1.
     int random_index = rand() % nexthops.size();
-    m_traceSwitchSprayEvent(nexthops[random_index], nexthops);  // 记录
+    if (Settings::record_switch_spray == 1)
+        m_traceSwitchSprayEvent(nexthops[random_index], nexthops, "random");  // 记录
     return nexthops[random_index];
     
 }
 
-// 链路级别的spray
-uint32_t SwitchNode::DoLbLinkwiseSpray(Ptr<const Packet> p, const CustomHeader &ch,
+// 负载感知的 spray
+uint32_t SwitchNode::DoLbLoadAwareSpray(Ptr<const Packet> p, const CustomHeader &ch,
                                   const std::vector<int> &nexthops) {
-    // randomly pick one next hop
-    // srand is set in network-load-balance.cc, Line 1182. currently is set to 1.
-    int random_index = rand() % nexthops.size();
-    if (Settings::record_switch_spray == 1) {
-
+    uint32_t min_load_egport = -1;
+    uint32_t min_load = 0xffffffff;
+    for (int i = 0; i < nexthops.size(); i++){
+        if (min_load > CalculateInterfaceLoad(nexthops[i])) {
+            min_load = CalculateInterfaceLoad(nexthops[i]);
+            min_load_egport = nexthops[i];
+        }
     }
-    return nexthops[random_index];
+    if (Settings::record_switch_spray == 1) {
+        m_traceSwitchSprayEvent(min_load_egport, nexthops, "loadAware");  // 记录
+    }
+    return min_load_egport;
 }
 
 /*-----------------CONGA-----------------*/
@@ -293,7 +301,12 @@ int SwitchNode::GetOutDev(Ptr<Packet> p, CustomHeader &ch) {
     }
     // switch_spray = 12, host_switch_spray = 13
     if (Settings::lb_mode == 12 || Settings::lb_mode == 13 || control_pkt) {  // control packet 不走这里
-        return DoLbRamdomSpray(p, ch, nexthops);     // random spray routing path decision
+        if (m_qlenAwareEgress) {
+            return DoLbLoadAwareSpray(p, ch, nexthops);     // random spray routing path decision
+        }
+        else {
+            return DoLbRamdomSpray(p, ch, nexthops);     // random spray routing path decision
+        }
     }
 
     switch (Settings::lb_mode) {

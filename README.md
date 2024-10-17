@@ -37,24 +37,6 @@ inline const char* getPriorityString(int pkt_type) {
             return "Undefined";
     }
 }
-/**
- * @brief record a send/recv event. 0: recv, 1: send; size: pkt_size
- */
-void snd_rcv_record(FILE *fout, Ptr<QbbNetDevice> dev, 
-                uint32_t rcv_snd_type, uint32_t pkt_type, uint32_t pkt_size, int flowid=-1, int seq=-1) {
-    // time, nodeID, nodeType, Interface's Idx, 0:resume, 1:pause
-    fprintf(fout, "%lu: %s %u NIC %u %s a %s pkt. size=%u flowid=%d seq=%d\n", 
-            Simulator::Now().GetTimeStep(), 
-            (dev->GetNode()->GetNodeType() == 0) ? " host  " : "switch ", 
-            dev->GetNode()->GetId(),
-            dev->GetIfIndex(), 
-            // 下面是动态填充的
-            (rcv_snd_type == 0) ? " recv " : " send ",
-            getPriorityString(pkt_type),
-            pkt_size,
-            flowid,
-            seq);
-}
 ```
 
 数据包类型定义：
@@ -79,6 +61,20 @@ inline int get_pkt_status(uint32_t l3Prot){
 ``` C++
 .AddTraceSource("SndRcvRecord", "record a send/recv event. 0: recv, 1: send; size: pkt_size",
                 MakeTraceSourceAccessor(&QbbNetDevice::m_traceSndRcv));
+```
+
+对于irn + packet_spray，使用可变窗口、逐QP窗口：
+``` python
+    if (enabled_irn == 1 and 'spray' in lb_mode):  # 
+        has_win = 1
+        var_win = 1
+        use_global_max_win = 0
+```
+
+在交换机spray(args.lb = switch_spray 或者 host_switch_spray)模式下，你可以指定交换机如何选择出端口（）。在run.py中设置如下字段：
+```
+qlen_aware_egress = 1           # 负载感知的spray
+qlen_aware_egress = 0           # 随机spray
 ```
 
 
@@ -111,7 +107,7 @@ python3 plot_flow_rate.py --type send --configID 'dcqcn(1)_fecmp(0)_pfc1_irn0'
 
 在使用vscode开发时，可以把以下字段添加到全局搜索栏：
 ```
-config/, src/point-to-point/, scratch/, autorun.sh, run.py, plot_flow_rate.py
+config/, src/applications, src/point-to-point/, scratch/, autorun.sh, run.py, plot_flow_rate.py,
 ```
 
 ## [Credit to] 

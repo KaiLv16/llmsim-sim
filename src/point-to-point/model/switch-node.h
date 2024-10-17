@@ -25,6 +25,7 @@ class SwitchNode : public Node {
 
    protected:
     bool m_ecnEnabled;
+    bool m_qlenAwareEgress;
     uint32_t m_ccMode;
     uint32_t m_ackHighPrio;  // set high priority for ACK/NACK
 
@@ -46,7 +47,7 @@ class SwitchNode : public Node {
     // Per-packet ECMP (lb_mode = 12 or 13)
     uint32_t DoLbRamdomSpray(Ptr<const Packet> p, const CustomHeader &ch,
                           const std::vector<int> &nexthops);
-    uint32_t DoLbLinkwiseSpray(Ptr<const Packet> p, const CustomHeader &ch,
+    uint32_t DoLbLoadAwareSpray(Ptr<const Packet> p, const CustomHeader &ch,
                           const std::vector<int> &nexthops);
     // DRILL (lb_mode = 2)
     uint32_t DoLbDrill(Ptr<const Packet> p, const CustomHeader &ch,
@@ -63,7 +64,7 @@ class SwitchNode : public Node {
                            const std::vector<int> &nexthops);  // dummy
 
     // 记录端口选路结果, 调用 switch_spray_event_record()
-    TracedCallback<uint32_t, const std::vector<int>& > m_traceSwitchSprayEvent;
+    TracedCallback<uint32_t, const std::vector<int>&, const char*> m_traceSwitchSprayEvent;
 
    public:
     // Ptr<BroadcomNode> m_broadcom;

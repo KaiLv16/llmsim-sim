@@ -27,7 +27,7 @@ FLOW_FILE config/{flow}.txt                           ~
 FLOW_RELATIONAL {flow_relation}                       newly_add
 NODE_MAPPING config/{node_mapping}.txt                newly_add
 SIM_NODE_MAPPING_FILE config/{simnode_mapping_file}.txt   newly_add
-IS_SPRAY {is_spray}                                   newly_add
+IS_SPRAY {spray_test}                                   newly_add
 
 FLOW_INPUT_FILE mix/output/{id}/{id}_in.txt           new
 CNP_OUTPUT_FILE mix/output/{id}/{id}_out_cnp.txt      new
@@ -75,17 +75,20 @@ ERROR_RATE_PER_LINK 0.0000      ~
 L2_CHUNK_SIZE 4000              ~
 L2_ACK_INTERVAL 1               ~
 L2_BACK_TO_ZERO 0               ~
-
-RATE_BOUND 1                    ~
-
 ACK_HIGH_PRIO {ack_high_prio}   ~
 
+RATE_BOUND {rate_bound}         仅在确认下一个包的发送时间时有用
 HAS_WIN {has_win}               ~
 VAR_WIN {var_win}               is_0_in_dcqcn_and_timely
+GLOBAL_T {use_global_win}       是否使用全局统一的窗口大小（maxBDP）
+
+ENABLE_PLB {enable_plb}         ~
+ENABLE_QLEN_AWARE_EG {qlen_aware_egress} ~
+
 FAST_REACT {fast_react}         is_1_in_hpcc_algo,_else=0
 MI_THRESH {mi}                  ~
 INT_MULTI {int_multi}           ~
-GLOBAL_T 1                      ~
+
 U_TARGET 0.95                   ~
 MULTI_RATE 0                    ~
 SAMPLE_FEEDBACK 0               ~
@@ -143,7 +146,7 @@ def main():
     parser = argparse.ArgumentParser(description='run simulation')
     parser.add_argument('--debug', dest='debug', action='store',
                         type=int, default=0, help="debug mode (default not enabled)")
-    parser.add_argument('--spray', dest='is_spray', action='store',
+    parser.add_argument('--spray', dest='spray_test', action='store',
                         type=int, default=0, help="enable Spray (default: 0)")
     parser.add_argument('--cc', dest='cc', action='store',
                         default='dcqcn', help="hpcc/dcqcn/timely/timely_vwin/dctcp (default: dcqcn)")
@@ -197,7 +200,7 @@ def main():
     # make running ID of this config
     # need to check directory exists or not
     isExist = True
-    is_spray = args.is_spray
+    spray_test = args.spray_test
 
     config_ID = "test_0"
     # while (isExist):      # 找一个新的序列号
@@ -250,7 +253,7 @@ def main():
 
     hostload = 0
     netload = args.netload
-    if (not is_spray):    
+    if (not spray_test):    
         oversub = int(topo.replace("\n", "").split("OS")[-1].replace(".txt", ""))
         assert (int(args.netload) % oversub == 0)
         hostload = int(args.netload) / oversub
@@ -279,7 +282,7 @@ def main():
     # 在config文件夹下
     if (args.flow_file_name == 'null'):
         print("no flow file specified")
-        if (is_spray):
+        if (spray_test):
             flow = "spray_N_{n_host}_T_{time}s_B_{bw}_flow".format(
                 n_host=n_host, time=int(float(args.simul_time)), bw=bw)
         else:
@@ -288,7 +291,7 @@ def main():
 
     # check the file exists
     if (exists(os.getcwd() + "/config/" + flow + ".txt")):
-        if (is_spray):
+        if (spray_test):
             print("Input SPRAY traffic <{_flow}.txt> already exists".format(_flow=flow))
         else:
             print("Input traffic file with load:{load:.2f}, cdf:{cdf}, n_host:{n_host} already exists".format(
@@ -298,7 +301,7 @@ def main():
             print(f"You specified an input flow file name {args.flow_file_name}, but it cannot be found under /config/ folder. Exit...")
             exit(1)
         print("Generate a input traffic file...")
-        if (is_spray):
+        if (spray_test):
             print("python ./traffic_gen/traffic_gen_spray.py -n {n_host} -o {output}".format(
                 n_host=n_host,
                 output=os.getcwd() + "/config/" + flow + ".txt"))
@@ -324,7 +327,7 @@ def main():
                 output=os.getcwd() + "/config/" + flow + ".txt"))
 
     # sanity check - bandwidth
-    if (not is_spray):
+    if (not spray_test):
         with open("config/{topo}.txt".format(topo=args.topo), 'r') as f_topo:
             first_line = f_topo.readline().split(" ")
             n_host = int(first_line[0]) - int(first_line[1])
@@ -381,14 +384,27 @@ def main():
 
     config_name = os.getcwd() + "/mix/output/" + config_ID + "/config.txt"
 
+    ##################################################################
+    ############             IMPORTANT ARGS               ############
+    ##################################################################
     # By default, DCQCN uses no window (rate-based).
     has_win = 0
     var_win = 0
+    rate_bound = 1
+    enable_plb = 0    # 还没有实现，需要端侧先实现RTT检测
+    qlen_aware_egress = 0
     if (cc_mode == 3 or cc_mode == 8 or enforce_win == 1):  # HPCC or DCTCP or enforcement
         has_win = 1
         var_win = 1
         if enforce_win == 1:
             print("### INFO: Enforced to use window scheme! ###")
+
+    if (enabled_irn == 1 and 'spray' in args.lb and 'switch' in args.lb):  # 对于irn + packet_spray，使用可变窗口、逐QP窗口。
+        rate_bound = 0
+        has_win = 1
+        var_win = 1
+        use_global_max_win = 0
+        qlen_aware_egress = 1
 
     # record to history
     simulday = datetime.now().strftime("%m/%d/%y")
@@ -414,7 +430,7 @@ def main():
             time=args.simul_time,
         ))
 
-    if not is_spray:    # conweave原生
+    if not spray_test:    # conweave原生
         # 1 BDP calculation（我们的拓扑不在这里）
         if topo2bdp.get(topo) == None:
             print("ERROR - topology is not registered in run.py!!", flush=True)
@@ -446,7 +462,7 @@ def main():
             hprio = args.high_prio
             
             config = config_template.format(id=config_ID, topo=topo, flow=flow, flow_relation=flow_relation, node_mapping=node_mapping, simnode_mapping_file=simnode_mapping_file,
-                                            is_spray=is_spray,
+                                            spray_test=spray_test,
                                             qlen_mon_start=qlen_mon_start, qlen_mon_end=qlen_mon_end, flowgen_start_time=flowgen_start_time,
                                             flowgen_stop_time=flowgen_stop_time, sw_monitoring_interval=sw_monitoring_interval,
                                             load=netload, buffer_size=buffer, lb_mode=lb_mode, cwh_tx_expiry_time=cwh_tx_expiry_time,
@@ -455,7 +471,8 @@ def main():
                                             enabled_pfc=enabled_pfc, enabled_irn=enabled_irn,
                                             cc_mode=cc_mode,
                                             ai=ai, hai=hai, dctcp_ai=dctcp_ai,
-                                            has_win=has_win, var_win=var_win,
+                                            rate_bound=rate_bound, has_win=has_win, var_win=var_win, use_global_win=use_global_max_win,
+                                            enable_plb=enable_plb, qlen_aware_egress=qlen_aware_egress, 
                                             fast_react=fast_react, mi=mi, int_multi=int_multi, ewma_gain=ewma_gain,
                                             kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map,
                                             ack_high_prio=hprio)
@@ -491,7 +508,7 @@ def main():
             hprio = args.high_prio
 
             config = config_template.format(id=config_ID, topo=topo, flow=flow, flow_relation=flow_relation, node_mapping=node_mapping, simnode_mapping_file=simnode_mapping_file,
-                                            is_spray=is_spray,
+                                            spray_test=spray_test,
                                             qlen_mon_start=qlen_mon_start, qlen_mon_end=qlen_mon_end, flowgen_start_time=flowgen_start_time,
                                             flowgen_stop_time=flowgen_stop_time, sw_monitoring_interval=sw_monitoring_interval,
                                             load=netload, buffer_size=buffer, lb_mode=lb_mode, cwh_tx_expiry_time=cwh_tx_expiry_time,
@@ -500,7 +517,8 @@ def main():
                                             enabled_pfc=enabled_pfc, enabled_irn=enabled_irn,
                                             cc_mode=cc_mode,
                                             ai=ai, hai=hai, dctcp_ai=dctcp_ai,
-                                            has_win=has_win, var_win=var_win,
+                                            rate_bound=rate_bound, has_win=has_win, var_win=var_win, use_global_win=use_global_max_win,
+                                            enable_plb=enable_plb, qlen_aware_egress=qlen_aware_egress, 
                                             fast_react=fast_react, mi=mi, int_multi=int_multi, ewma_gain=ewma_gain,
                                             kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map,
                                             ack_high_prio=hprio)
@@ -526,7 +544,7 @@ def main():
             # config_name = "mix/config_%s_%s_%s%s.txt"%(topo, trace, cc, failure)
             # config = config_template.format(bw=bw, trace=trace, topo=topo, cc=cc, mode=3, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=1, u_tgt=u_tgt, mi=mi, int_multi=int_multi, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=0, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr)
             config = config_template.format(id=config_ID, topo=topo, flow=flow, flow_relation=flow_relation, node_mapping=node_mapping, simnode_mapping_file=simnode_mapping_file,
-                                            is_spray=is_spray,
+                                            spray_test=spray_test,
                                             qlen_mon_start=qlen_mon_start, qlen_mon_end=qlen_mon_end, flowgen_start_time=flowgen_start_time,
                                             flowgen_stop_time=flowgen_stop_time, sw_monitoring_interval=sw_monitoring_interval,
                                             load=netload, buffer_size=buffer, lb_mode=lb_mode, cwh_tx_expiry_time=cwh_tx_expiry_time,
@@ -535,7 +553,8 @@ def main():
                                             enabled_pfc=enabled_pfc, enabled_irn=enabled_irn,
                                             cc_mode=cc_mode,
                                             ai=ai, hai=hai, dctcp_ai=dctcp_ai,
-                                            has_win=has_win, var_win=var_win,
+                                            rate_bound=rate_bound, has_win=has_win, var_win=var_win, use_global_win=use_global_max_win,
+                                            enable_plb=enable_plb, qlen_aware_egress=qlen_aware_egress, 
                                             fast_react=fast_react, mi=mi, int_multi=int_multi, ewma_gain=ewma_gain,
                                             kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map,
                                             ack_high_prio=hprio)
@@ -554,7 +573,7 @@ def main():
             hprio = 0       # hpcc代码里写的
             # config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=8, t_alpha=1, t_dec=4, t_inc=300, g=0.0625, ai=ai, hai=hai, dctcp_ai=dctcp_ai, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=0, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr)
             config = config_template.format(id=config_ID, topo=topo, flow=flow, flow_relation=flow_relation, node_mapping=node_mapping, simnode_mapping_file=simnode_mapping_file,
-                                            is_spray=is_spray,
+                                            spray_test=spray_test,
                                             qlen_mon_start=qlen_mon_start, qlen_mon_end=qlen_mon_end, flowgen_start_time=flowgen_start_time,
                                             flowgen_stop_time=flowgen_stop_time, sw_monitoring_interval=sw_monitoring_interval,
                                             load=netload, buffer_size=buffer, lb_mode=lb_mode, cwh_tx_expiry_time=cwh_tx_expiry_time,
@@ -563,7 +582,8 @@ def main():
                                             enabled_pfc=enabled_pfc, enabled_irn=enabled_irn,
                                             cc_mode=cc_mode,
                                             ai=ai, hai=hai, dctcp_ai=dctcp_ai,
-                                            has_win=has_win, var_win=var_win,
+                                            rate_bound=rate_bound, has_win=has_win, var_win=var_win, use_global_win=use_global_max_win,
+                                            enable_plb=enable_plb, qlen_aware_egress=qlen_aware_egress, 
                                             fast_react=fast_react, mi=mi, int_multi=int_multi, ewma_gain=ewma_gain,
                                             kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map,
                                             ack_high_prio=hprio)
@@ -577,7 +597,7 @@ def main():
             hprio = args.high_prio
             # config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=7, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=0, vwin=0, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=1, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr)
             config = config_template.format(id=config_ID, topo=topo, flow=flow, flow_relation=flow_relation, node_mapping=node_mapping, simnode_mapping_file=simnode_mapping_file,
-                                            is_spray=is_spray,
+                                            spray_test=spray_test,
                                             qlen_mon_start=qlen_mon_start, qlen_mon_end=qlen_mon_end, flowgen_start_time=flowgen_start_time,
                                             flowgen_stop_time=flowgen_stop_time, sw_monitoring_interval=sw_monitoring_interval,
                                             load=netload, buffer_size=buffer, lb_mode=lb_mode, cwh_tx_expiry_time=cwh_tx_expiry_time,
@@ -586,7 +606,8 @@ def main():
                                             enabled_pfc=enabled_pfc, enabled_irn=enabled_irn,
                                             cc_mode=cc_mode,
                                             ai=ai, hai=hai, dctcp_ai=dctcp_ai,
-                                            has_win=has_win, var_win=var_win,
+                                            rate_bound=rate_bound, has_win=has_win, var_win=var_win, use_global_win=use_global_max_win,
+                                            enable_plb=enable_plb, qlen_aware_egress=qlen_aware_egress, 
                                             fast_react=fast_react, mi=mi, int_multi=int_multi, ewma_gain=ewma_gain,
                                             kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map,
                                             ack_high_prio=hprio)
@@ -600,7 +621,7 @@ def main():
             hprio = args.high_prio
             # config = config_template.format(bw=bw, trace=trace, topo=topo, cc=args.cc, mode=7, t_alpha=1, t_dec=4, t_inc=300, g=0.00390625, ai=ai, hai=hai, dctcp_ai=1000, has_win=1, vwin=1, us=0, u_tgt=u_tgt, mi=mi, int_multi=1, pint_log_base=pint_log_base, pint_prob=pint_prob, ack_prio=1, link_down=args.down, failure=failure, kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map, buffer_size=bfsz, enable_tr=enable_tr)
             config = config_template.format(id=config_ID, topo=topo, flow=flow, flow_relation=flow_relation, node_mapping=node_mapping, simnode_mapping_file=simnode_mapping_file,
-                                            is_spray=is_spray,
+                                            spray_test=spray_test,
                                             qlen_mon_start=qlen_mon_start, qlen_mon_end=qlen_mon_end, flowgen_start_time=flowgen_start_time,
                                             flowgen_stop_time=flowgen_stop_time, sw_monitoring_interval=sw_monitoring_interval,
                                             load=netload, buffer_size=buffer, lb_mode=lb_mode, cwh_tx_expiry_time=cwh_tx_expiry_time,
@@ -609,7 +630,8 @@ def main():
                                             enabled_pfc=enabled_pfc, enabled_irn=enabled_irn,
                                             cc_mode=cc_mode,
                                             ai=ai, hai=hai, dctcp_ai=dctcp_ai,
-                                            has_win=has_win, var_win=var_win,
+                                            rate_bound=rate_bound, has_win=has_win, var_win=var_win, use_global_win=use_global_max_win,
+                                            enable_plb=enable_plb, qlen_aware_egress=qlen_aware_egress, 
                                             fast_react=fast_react, mi=mi, int_multi=int_multi, ewma_gain=ewma_gain,
                                             kmax_map=kmax_map, kmin_map=kmin_map, pmax_map=pmax_map,
                                             ack_high_prio=hprio)
@@ -654,7 +676,7 @@ def main():
     
     print("config_ID: ", config_ID)
     
-    if is_spray:
+    if spray_test:
         print("TODO: Analyze the output")
         pass
     else:
