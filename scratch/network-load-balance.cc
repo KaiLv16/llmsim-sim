@@ -27,6 +27,7 @@
 #include <ns3/switch-node.h>
 #include <time.h>
 #include <regex>
+#include <algorithm> // 必须包含
 
 #include <fstream>
 #include <iostream>
@@ -243,6 +244,9 @@ struct Flow {
     uint32_t dst;
     int size;
     uint32_t lat;
+    uint64_t baseTxTime;
+    uint64_t TxStartTime;
+    uint64_t TxFinishTime;
     vector<uint32_t> dependFlows;
     vector<uint32_t> invokeFlows;
     std::string note; // 新增成员，用于存储 note 内容
@@ -250,6 +254,9 @@ struct Flow {
     
     Flow() {
         size = -1;
+        baseTxTime = -1;
+        TxStartTime = -1;
+        TxFinishTime = -1;
     }
 
     void print() {
@@ -264,6 +271,7 @@ struct Flow {
         printf("], note=\"%s\"\n", note.c_str());
     }
 };
+double maxSlowDown = 0;
 
 // key: Flow.id   value: Flow结构体
 map<uint32_t, Flow> flowMap;
@@ -383,8 +391,8 @@ void ParseRelationalFlowFile(string fileName) {
             std::string note_content = note_match[1]; // 获取 <xxx> 中的内容
             flow.note = note_content; // 假设 Flow 类中有一个 string 类型的 note 成员
         }
-        if (cur_flow_num < 40)
-            flow.print();
+        // if (cur_flow_num < 40)
+        //     flow.print();
 
         // assert(n.Get(flow.src)->GetNodeType() == 0 &&
             //    n.Get(flow.dst)->GetNodeType() == 0);
@@ -494,6 +502,8 @@ void RelationalFlowStart(uint32_t flowid) {
 
     if (pg == 3) {
         uint32_t baseTxTime = currentFlow.size * 8 / 100000 + pairRtt[n.Get(src)][n.Get(dst)] / 1000;      // ms 
+        currentFlow.TxStartTime = Simulator::Now().GetTimeStep();
+        currentFlow.baseTxTime = baseTxTime;
         std::cerr << Simulator::Now() << " Sending flow " << currentFlow.id << 
         ": node " << currentFlow.src << " (" << src << ") -> node " << currentFlow.dst << " (" << dst << 
         "), note=\"" << currentFlow.note << "\", size=" << currentFlow.size << ", IdealTxtime=" << baseTxTime << "us" << std::endl;
@@ -538,8 +548,17 @@ void RelationalFlowEnd(uint32_t flowid) {
     Flow& currentFlow = flowMap[flowid];
     // 标记该流已发送
     currentFlow.sent = true;
+    currentFlow.TxFinishTime = Simulator::Now().GetTimeStep();
     string ftype = (currentFlow.pg == -1)? " Dep " : " Flow ";
-    std::cerr << Simulator::Now() << ftype << currentFlow.id << " Finish.\n";
+    std::cerr << Simulator::Now() << ftype << currentFlow.id << " Finish. ";
+    if (currentFlow.pg == 3) {
+        double slowdown = double(currentFlow.TxFinishTime - currentFlow.TxStartTime) / 1000 / double(currentFlow.baseTxTime);
+        std::cerr << "note=\"" << currentFlow.note << "\", IdealTxTime=" << currentFlow.baseTxTime << "us, RealTxTime=" << 
+        (currentFlow.TxFinishTime - currentFlow.TxStartTime) / 1000 << "us, SlowDown=" << slowdown;
+        maxSlowDown = std::max(maxSlowDown, slowdown);
+    }
+    std::cout << "\n";
+
     // 处理 invoke_flow 中的流，将其依赖关系减1
     for (uint32_t invokedFlowId : currentFlow.invokeFlows) {
         dependencies[invokedFlowId]--;
@@ -995,7 +1014,7 @@ void switch_spray_event_record(FILE *fout, Ptr<SwitchNode> sw, uint32_t port_pic
         std::cout << "Error encountered in switch_spray_event_record(): nexthops.size() < 1" << std::endl;
         return;
     }
-    fprintf(fout, "%lu: switch %u do spray (%u, %s) [", Simulator::Now().GetTimeStep(), sw->GetId(), nexthops.size(), explain_str);
+    fprintf(fout, "%lu: switch %u do spray (%lu, %s) [", Simulator::Now().GetTimeStep(), sw->GetId(), nexthops.size(), explain_str);
     size_t i = 0;
     for (i = 0; i < nsize - 1; ++i) {
         fprintf(fout, "%d, ", nexthops[i]);
@@ -2508,4 +2527,5 @@ int main(int argc, char *argv[]) {
     NS_LOG_INFO("Done.");
     endt = clock();
     std::cerr << (double)(endt - begint) / CLOCKS_PER_SEC << "\n";
+    std::cerr << "maxSlowDown" << maxSlowDown << std::endl;
 }

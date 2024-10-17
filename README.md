@@ -18,6 +18,11 @@
 
 这样会把stdout输出到 `aaa.txt`, stderr输出到 `bbb.txt`，方便查看log
 
+在Vscode中使用正则表达式查看DP的SlowDown：
+```
+(?=.*DP)(?=.*Slowdown)
+```
+
 用于输出收发信息的函数：
 
 ``` C++
