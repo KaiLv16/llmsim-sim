@@ -252,6 +252,8 @@ struct Flow {
     float slowDown;
     int64_t theoreticalStartTime;
     int64_t theoreticalFinishTime;
+    int64_t theoreticalStartTime_NoCalc;
+    int64_t theoreticalFinishTime_Nocalc;
 
     vector<uint32_t> dependFlows;
     vector<uint32_t> invokeFlows;
@@ -267,6 +269,8 @@ struct Flow {
         slowDown = -1;
         theoreticalStartTime = 0;
         theoreticalFinishTime = 0;
+        theoreticalStartTime_NoCalc = 0;
+        theoreticalFinishTime_Nocalc = 0;
     }
 
     void print(bool simple = true, const std::string& outputTarget = "stdout") {
@@ -305,8 +309,10 @@ struct Flow {
                     << ", TxStartTime=" << (TxStartTime - base_ns) 
                     << ", TxFinishTime=" << (TxFinishTime - base_ns) 
                     << ", slowDown=" << slowDown 
-                    << ", theoreticalStartTime=" << (theoreticalStartTime - base_ns) 
-                    << ", theoreticalFinishTime=" << (theoreticalFinishTime - base_ns) << "\n";
+                    << ", IdealStartTime=" << (theoreticalStartTime - base_ns) 
+                    << ", IdealFinishTime=" << (theoreticalFinishTime - base_ns)
+                    << ", IdealStartTime_noCalc=" << (theoreticalStartTime_NoCalc - base_ns) 
+                    << ", FinishTime_noCalc=" << (theoreticalFinishTime_Nocalc - base_ns) << "\n";
         }
 
         // 如果使用文件输出，则关闭文件
@@ -324,6 +330,7 @@ void PrintFlowMap(bool flow_only=true, bool simple=false, const std::string& out
     // can do some statistics here
     int64_t RealEndTime = 0;
     int64_t IdealEndTime = 0;
+    int64_t IdealEndTime_NoCalc = 0;
     for (auto it = flowMap.begin(); it != flowMap.end(); ++it) {
         uint32_t flowId = it->first;
         Flow flow = it->second;
@@ -332,6 +339,7 @@ void PrintFlowMap(bool flow_only=true, bool simple=false, const std::string& out
             flow.print(simple, outputTarget);  // 调用 Flow 结构中的打印函数
             IdealEndTime = std::max(flow.theoreticalFinishTime - int64_t(global_sim_start_time * 1000000000.0), IdealEndTime);
             RealEndTime = std::max(flow.TxFinishTime - int64_t(global_sim_start_time * 1000000000), RealEndTime);
+            IdealEndTime = std::max(flow.theoreticalFinishTime_Nocalc - int64_t(global_sim_start_time * 1000000000.0), IdealEndTime);
         }
     }
     std::ostream* outStream = &std::cout; // 默认输出到标准输出
@@ -345,8 +353,10 @@ void PrintFlowMap(bool flow_only=true, bool simple=false, const std::string& out
         outStream = &outFile; // 改变输出流为文件流
     }
     *outStream << "    IdealEndTime=" << IdealEndTime / 1000000.0
+               << "ms, IdealEndTime(NoCalc)=" << IdealEndTime_NoCalc / 1000000.0
                << "ms, RealEndTime=" << RealEndTime / 1000000.0
-               << "ms, totalSlowDown=" << double(RealEndTime) / double(IdealEndTime)
+               << "ms, NoCalcSlowDown=" << double(RealEndTime - (IdealEndTime - IdealEndTime_NoCalc)) / double(IdealEndTime_NoCalc)
+               << ", totalSlowDown=" << double(RealEndTime) / double(IdealEndTime)
                << "\n";
     if (outputTarget != "stdout") {
         outFile.close();
@@ -569,13 +579,15 @@ void RelationalFlowStart(uint32_t flowid) {
 
     // only works for those flow doesn't have pre-conditions.
     if (currentFlow.dependFlows.size() == 0) {      // 这些flow没有任何前置流。
-        currentFlow.theoreticalStartTime = Simulator::Now().GetTimeStep();
+        currentFlow.theoreticalStartTime = currentFlow.lat;
+        currentFlow.theoreticalStartTime_NoCalc = 0;
         printf("Flow %u: Bind the start time to the starting stream.\n", flowid);
     }
 
     if (pg == 3) {
         uint64_t baseTxTime_ns = double(currentFlow.size) * 8.0 / 95.0 + double(pairRtt[n.Get(src)][n.Get(dst)]);      // ms, 95 means 95b/ns
         currentFlow.theoreticalFinishTime = currentFlow.theoreticalStartTime + baseTxTime_ns;        // ns
+        currentFlow.theoreticalFinishTime_Nocalc = currentFlow.theoreticalStartTime_NoCalc + baseTxTime_ns;        // ns
         currentFlow.TxStartTime = Simulator::Now().GetTimeStep();
         currentFlow.baseTxTime = baseTxTime_ns;
         std::cerr << Simulator::Now() << " Sending flow " << currentFlow.id << 
@@ -611,6 +623,7 @@ void RelationalFlowStart(uint32_t flowid) {
         std::cerr << Simulator::Now() << " dealing dep " << currentFlow.id << 
             ": node " << currentFlow.src << " (" << src << ") -> node " << currentFlow.dst << " (" << dst << ")" << std::endl;
         currentFlow.theoreticalFinishTime = currentFlow.theoreticalStartTime;
+        currentFlow.theoreticalFinishTime_Nocalc = currentFlow.theoreticalStartTime_NoCalc;
         Simulator::Schedule(MicroSeconds(currentFlow.lat), &RelationalFlowEnd, currentFlow.id);
 
         // Simulator::Schedule(MicroSeconds(0), &RelationalFlowEnd, currentFlow.id);   // 时延已经在 ScheduleFlowRelational() 加过了
@@ -640,7 +653,8 @@ void RelationalFlowEnd(uint32_t flowid) {
     for (uint32_t invokedFlowId : currentFlow.invokeFlows) {
         dependencies[invokedFlowId]--;
         Flow& newFlow = flowMap[invokedFlowId];
-        newFlow.theoreticalStartTime = std::max(currentFlow.theoreticalFinishTime, newFlow.theoreticalStartTime);
+        newFlow.theoreticalStartTime = std::max(currentFlow.theoreticalFinishTime, newFlow.theoreticalStartTime + newFlow.lat * 1000000000);
+        newFlow.theoreticalStartTime_NoCalc = std::max(currentFlow.theoreticalFinishTime_Nocalc, newFlow.theoreticalStartTime_NoCalc);
         if (dependencies[invokedFlowId] == 0) {
             readyQueue.push(invokedFlowId);
             string ftype2 = (newFlow.pg == -1)? " Dep " : " Flow ";
