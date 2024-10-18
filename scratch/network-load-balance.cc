@@ -275,7 +275,7 @@ struct Flow {
 
         // 如果输出目标是文件，则打开文件
         if (outputTarget != "stdout") {
-            outFile.open(outputTarget);
+            outFile.open(outputTarget, std::ios::app);
             if (!outFile) {
                 std::cerr << "Error opening file: " << outputTarget << std::endl;
                 return;
@@ -337,7 +337,7 @@ void PrintFlowMap(bool flow_only=true, bool simple=false, const std::string& out
     std::ostream* outStream = &std::cout; // 默认输出到标准输出
     std::ofstream outFile;
     if (outputTarget != "stdout") {
-        outFile.open(outputTarget);
+        outFile.open(outputTarget, std::ios::app);
         if (!outFile) {
             std::cerr << "Error opening file: " << outputTarget << std::endl;
             return;
@@ -568,8 +568,9 @@ void RelationalFlowStart(uint32_t flowid) {
     dst = node2phynode[vnode2node[currentFlow.dst]];
 
     // only works for those flow doesn't have pre-conditions.
-    if (currentFlow.theoreticalStartTime = -1) {      // 等于-1，意味着之前没有任何前置的Flow修改它，因而这些flow没有任何前置流。
+    if (currentFlow.theoreticalStartTime == -1) {      // 等于-1，意味着之前没有任何前置的Flow修改它，因而这些flow没有任何前置流。
         currentFlow.theoreticalStartTime = Simulator::Now().GetTimeStep();
+        printf("Flow %u: Bind the start time to the starting stream.\n", flowid);
     }
 
     if (pg == 3) {
