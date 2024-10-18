@@ -63,7 +63,7 @@ NS_LOG_COMPONENT_DEFINE("GENERIC_SIMULATION");
 
 std::ostringstream oss;
 
-
+float global_sim_start_time = 2.0;
 /*------Load balancing parameters-----*/
 // mode for load balancer, 0: flow ECMP, 2: DRILL, 3: Conga, 6: Letflow, 9: ConWeave
 uint32_t lb_mode = 0;
@@ -132,6 +132,7 @@ std::string est_error_output_file = "est_error.txt";
 
 std::string routing_table_output_file = "routing_table.txt";
 std::string snd_rcv_output_file = "snd_rcv_output_file.txt";
+std::string flow_statistics_output_file = "flow_statistics_output.txt";
 
 // CC params
 double alpha_resume_interval = 55, rp_timer = 300, ewma_gain = 1 / 16;
@@ -245,8 +246,13 @@ struct Flow {
     int size;
     uint32_t lat;
     uint64_t baseTxTime;
+    uint64_t TxTime;
     uint64_t TxStartTime;
     uint64_t TxFinishTime;
+    float slowDown;
+    uint64_t theoreticalStartTime;
+    uint64_t theoreticalFinishTime;
+
     vector<uint32_t> dependFlows;
     vector<uint32_t> invokeFlows;
     std::string note; // 新增成员，用于存储 note 内容
@@ -254,36 +260,97 @@ struct Flow {
     
     Flow() {
         size = -1;
+        TxTime=-1;
         baseTxTime = -1;
         TxStartTime = -1;
         TxFinishTime = -1;
+        slowDown = -1;
+        theoreticalStartTime = -1;
+        theoreticalFinishTime = -1;
     }
 
-    void print() {
-        printf("id=%u priority=%d src=%u dst=%u size=%d lat=%u dep_flow=[", id, pg, src, dst, size, lat);
+    void print(bool simple = true, const std::string& outputTarget = "stdout") {
+        std::ostream* outStream = &std::cout; // 默认输出到标准输出
+        std::ofstream outFile;
+
+        // 如果输出目标是文件，则打开文件
+        if (outputTarget != "stdout") {
+            outFile.open(outputTarget);
+            if (!outFile) {
+                std::cerr << "Error opening file: " << outputTarget << std::endl;
+                return;
+            }
+            outStream = &outFile; // 改变输出流为文件流
+        }
+
+        uint64_t base_ns = global_sim_start_time * 1000000000;
+
+        // 使用 outStream 进行输出
+        *outStream << "FlowId=" << id << " priority=" << pg << " src=" << src << " dst=" << dst 
+                << " size=" << size << " lat=" << lat << " dep_flow=[";
+        
         for (int i = 0; i < dependFlows.size(); i++) {
-            printf("%u ", dependFlows[i]);
+            *outStream << dependFlows[i] << " ";
         }
-        printf("] invoke_flow=[");
+        *outStream << "] invoke_flow=[";
+
         for (int i = 0; i < invokeFlows.size(); i++) {
-            printf("%u ", invokeFlows[i]);
+            *outStream << invokeFlows[i] << " ";
         }
-        printf("], note=\"%s\"\n", note.c_str());
+        *outStream << "], note=\"" << note << "\" \n";
+
+        if (!simple) {
+            *outStream << "    TxTime=" << TxTime 
+                    << ", baseTxTime=" << baseTxTime 
+                    << ", TxStartTime=" << (TxStartTime - base_ns) 
+                    << ", TxFinishTime=" << (TxFinishTime - base_ns) 
+                    << ", slowDown=" << slowDown 
+                    << ", theoreticalStartTime=" << (theoreticalStartTime - base_ns) 
+                    << ", theoreticalFinishTime=" << (theoreticalFinishTime - base_ns) << "\n";
+        }
+
+        // 如果使用文件输出，则关闭文件
+        if (outputTarget != "stdout") {
+            outFile.close();
+        }
     }
 };
-double maxSlowDown = 0;
+float maxSlowDown = 0;
 
 // key: Flow.id   value: Flow结构体
 map<uint32_t, Flow> flowMap;
-void PrintFlowMap() {
+void PrintFlowMap(bool flow_only=true, bool simple=false, const std::string& outputTarget="flowstatistics.txt") {
     std::cout << "flowMap" << std::endl;
+    // can do some statistics here
+    uint64_t RealEndTime = 0;
+    uint64_t IdealEndTime = 0;
     for (auto it = flowMap.begin(); it != flowMap.end(); ++it) {
         uint32_t flowId = it->first;
         Flow flow = it->second;
-        printf("Flow ID: %u\n", flowId);
-        flow.print();  // 调用 Flow 结构中的打印函数
+        if (!(flow_only && flow.pg == -1)){
+            // printf("Flow ID: %u\n", flowId);
+            flow.print(simple, outputTarget);  // 调用 Flow 结构中的打印函数
+            IdealEndTime = std::max(flow.theoreticalFinishTime, IdealEndTime);
+            RealEndTime = std::max(flow.TxFinishTime, RealEndTime);
+        }
     }
-    printf("\n");
+    std::ostream* outStream = &std::cout; // 默认输出到标准输出
+    std::ofstream outFile;
+    if (outputTarget != "stdout") {
+        outFile.open(outputTarget);
+        if (!outFile) {
+            std::cerr << "Error opening file: " << outputTarget << std::endl;
+            return;
+        }
+        outStream = &outFile; // 改变输出流为文件流
+    }
+    *outStream << "    IdealEndTime=" << IdealEndTime 
+               << ", RealEndTime=" << RealEndTime 
+               << ", totalSlowDown=" << double(RealEndTime) / double(IdealEndTime)
+               << "\n";
+    if (outputTarget != "stdout") {
+        outFile.close();
+    }
 }
 
 // key: Flow.id   value: 每条流的依赖数量
@@ -500,13 +567,19 @@ void RelationalFlowStart(uint32_t flowid) {
     src = node2phynode[vnode2node[currentFlow.src]];
     dst = node2phynode[vnode2node[currentFlow.dst]];
 
+    // only works for those flow doesn't have pre-conditions.
+    if (currentFlow.theoreticalStartTime = -1) {      // 等于-1，意味着之前没有任何前置的Flow修改它，因而这些flow没有任何前置流。
+        currentFlow.theoreticalStartTime = Simulator::Now().GetTimeStep();
+    }
+
     if (pg == 3) {
-        uint32_t baseTxTime = currentFlow.size * 8 / 100000 + pairRtt[n.Get(src)][n.Get(dst)] / 1000;      // ms 
+        uint64_t baseTxTime_ns = double(currentFlow.size) * 8.0 / 95.0 + double(pairRtt[n.Get(src)][n.Get(dst)]);      // ms, 95 means 95b/ns
+        currentFlow.theoreticalFinishTime = currentFlow.theoreticalStartTime + baseTxTime_ns;        // ns
         currentFlow.TxStartTime = Simulator::Now().GetTimeStep();
-        currentFlow.baseTxTime = baseTxTime;
+        currentFlow.baseTxTime = baseTxTime_ns;
         std::cerr << Simulator::Now() << " Sending flow " << currentFlow.id << 
         ": node " << currentFlow.src << " (" << src << ") -> node " << currentFlow.dst << " (" << dst << 
-        "), note=\"" << currentFlow.note << "\", size=" << currentFlow.size << ", IdealTxtime=" << baseTxTime << "us" << std::endl;
+        "), note=\"" << currentFlow.note << "\", size=" << currentFlow.size << ", IdealTxtime=" << baseTxTime_ns/1000 << "us" << std::endl;
         if (src == dst) {
             std::cerr << "\nSRC node == DST node!\n\n";
         }
@@ -536,7 +609,9 @@ void RelationalFlowStart(uint32_t flowid) {
     else {   // 处理 Dep
         std::cerr << Simulator::Now() << " dealing dep " << currentFlow.id << 
             ": node " << currentFlow.src << " (" << src << ") -> node " << currentFlow.dst << " (" << dst << ")" << std::endl;
+        currentFlow.theoreticalFinishTime = currentFlow.theoreticalStartTime;
         Simulator::Schedule(MicroSeconds(currentFlow.lat), &RelationalFlowEnd, currentFlow.id);
+
         // Simulator::Schedule(MicroSeconds(0), &RelationalFlowEnd, currentFlow.id);   // 时延已经在 ScheduleFlowRelational() 加过了
     }
 
@@ -549,22 +624,24 @@ void RelationalFlowEnd(uint32_t flowid) {
     // 标记该流已发送
     currentFlow.sent = true;
     currentFlow.TxFinishTime = Simulator::Now().GetTimeStep();
-    string ftype = (currentFlow.pg == -1)? " Dep " : " Flow ";
-    std::cerr << Simulator::Now() << ftype << currentFlow.id << " Finish. ";
+    currentFlow.TxTime = currentFlow.TxFinishTime - currentFlow.TxStartTime;
+    string ftype1 = (currentFlow.pg == -1)? " Dep " : " Flow ";
+    std::cerr << Simulator::Now() << ftype1 << currentFlow.id << " Finish. ";
     if (currentFlow.pg == 3) {
-        double slowdown = double(currentFlow.TxFinishTime - currentFlow.TxStartTime) / 1000 / double(currentFlow.baseTxTime);
+        currentFlow.slowDown = double(currentFlow.TxTime) / double(currentFlow.baseTxTime);
         std::cerr << "note=\"" << currentFlow.note << "\", IdealTxTime=" << currentFlow.baseTxTime << "us, RealTxTime=" << 
-        (currentFlow.TxFinishTime - currentFlow.TxStartTime) / 1000 << "us, SlowDown=" << slowdown;
-        maxSlowDown = std::max(maxSlowDown, slowdown);
+        currentFlow.TxTime / 1000.0 << "us, SlowDown=" << currentFlow.slowDown;
+        maxSlowDown = std::max(maxSlowDown, currentFlow.slowDown);
     }
     std::cout << "\n";
 
     // 处理 invoke_flow 中的流，将其依赖关系减1
     for (uint32_t invokedFlowId : currentFlow.invokeFlows) {
         dependencies[invokedFlowId]--;
+        Flow& newFlow = flowMap[invokedFlowId];
+        newFlow.theoreticalStartTime = std::max(currentFlow.theoreticalFinishTime, newFlow.theoreticalStartTime);
         if (dependencies[invokedFlowId] == 0) {
             readyQueue.push(invokedFlowId);
-            Flow& newFlow = flowMap[invokedFlowId];
             string ftype2 = (newFlow.pg == -1)? " Dep " : " Flow ";
             std::cerr << Simulator::Now() << ftype2 << invokedFlowId << " becomes Ready.\n";
         }
@@ -1303,6 +1380,12 @@ int main(int argc, char *argv[]) {
                 conf >> v;
                 flow_input_file = v;
                 std::cerr << "FLOW_INPUT_FILE\t\t\t" << flow_input_file << "\n";
+            }
+            if (key.compare("FLOW_STATISTICS_OUTPUT_FILE") == 0) {
+                std::string v;
+                conf >> v;
+                flow_statistics_output_file = v;
+                std::cerr << "FLOW_STATISTICS_OUTPUT_FILE\t\t\t" << flow_statistics_output_file << "\n";
             }
             if (key.compare("FLOW_RELATIONAL") == 0) {
                 uint32_t v;
@@ -2457,7 +2540,7 @@ int main(int argc, char *argv[]) {
         PrintReadyQueue();
 
         // 调度并发送流
-        Simulator::Schedule(Seconds(2.0), &ScheduleFlowRelational);
+        Simulator::Schedule(Seconds(global_sim_start_time), &ScheduleFlowRelational);
     }
 
     topof.close();
@@ -2518,7 +2601,12 @@ int main(int argc, char *argv[]) {
     cout << "flowgen_stop_time: " << flowgen_stop_time << std::endl;
     Simulator::Stop(Seconds(flowgen_stop_time + 10.0));
     Simulator::Run();
+    /*
+        打印flow信息
+    */
 
+    PrintFlowMap(true, false, flow_statistics_output_file);
+    // PrintFlowMap(true, false, "stdout");         // 也可以输出到标准输出
     /*-----------------------------------------------------------------------------*/
     /*----- we don't need below. Just we can enforce to close this simulation. -----*/
     /*-----------------------------------------------------------------------------*/

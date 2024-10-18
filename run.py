@@ -30,6 +30,7 @@ SIM_NODE_MAPPING_FILE config/{simnode_mapping_file}.txt   newly_add
 IS_SPRAY {spray_test}                                   newly_add
 
 FLOW_INPUT_FILE mix/output/{id}/{id}_in.txt           new
+FLOW_STATISTICS_OUTPUT_FILE mix/output/{id}/{id}_flow_statistics_output.txt           new
 CNP_OUTPUT_FILE mix/output/{id}/{id}_out_cnp.txt      new
 FCT_OUTPUT_FILE mix/output/{id}/{id}_out_fct.txt      ~
 PFC_OUTPUT_FILE mix/output/{id}/{id}_out_pfc.txt      ~
