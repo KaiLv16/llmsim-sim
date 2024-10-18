@@ -330,8 +330,8 @@ void PrintFlowMap(bool flow_only=true, bool simple=false, const std::string& out
         if (!(flow_only && flow.pg == -1)){
             // printf("Flow ID: %u\n", flowId);
             flow.print(simple, outputTarget);  // 调用 Flow 结构中的打印函数
-            IdealEndTime = std::max(flow.theoreticalFinishTime, IdealEndTime);
-            RealEndTime = std::max(flow.TxFinishTime, RealEndTime);
+            IdealEndTime = std::max(flow.theoreticalFinishTime - int64_t(global_sim_start_time * 1000000000.0), IdealEndTime);
+            RealEndTime = std::max(flow.TxFinishTime - int64_t(global_sim_start_time * 1000000000), RealEndTime);
         }
     }
     std::ostream* outStream = &std::cout; // 默认输出到标准输出
@@ -344,9 +344,9 @@ void PrintFlowMap(bool flow_only=true, bool simple=false, const std::string& out
         }
         outStream = &outFile; // 改变输出流为文件流
     }
-    *outStream << "    IdealEndTime=" << IdealEndTime 
-               << ", RealEndTime=" << RealEndTime 
-               << ", totalSlowDown=" << double(RealEndTime) / double(IdealEndTime)
+    *outStream << "    IdealEndTime=" << IdealEndTime / 1000000.0
+               << "ms, RealEndTime=" << RealEndTime / 1000000.0
+               << "ms, totalSlowDown=" << double(RealEndTime) / double(IdealEndTime)
                << "\n";
     if (outputTarget != "stdout") {
         outFile.close();
@@ -630,8 +630,8 @@ void RelationalFlowEnd(uint32_t flowid) {
     std::cerr << Simulator::Now() << ftype1 << currentFlow.id << " Finish. ";
     if (currentFlow.pg == 3) {
         currentFlow.slowDown = double(currentFlow.TxTime) / double(currentFlow.baseTxTime);
-        std::cerr << "note=\"" << currentFlow.note << "\", IdealTxTime=" << currentFlow.baseTxTime << "us, RealTxTime=" << 
-        currentFlow.TxTime / 1000.0 << "us, SlowDown=" << currentFlow.slowDown;
+        std::cerr << "note=\"" << currentFlow.note << "\", IdealTxTime=" << currentFlow.baseTxTime / 1000 
+        << "us, RealTxTime=" << currentFlow.TxTime / 1000.0 << "us, SlowDown=" << currentFlow.slowDown;
         maxSlowDown = std::max(maxSlowDown, currentFlow.slowDown);
     }
     std::cout << "\n";
