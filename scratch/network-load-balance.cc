@@ -245,13 +245,13 @@ struct Flow {
     uint32_t dst;
     int size;
     uint32_t lat;
-    uint64_t baseTxTime;
-    uint64_t TxTime;
-    uint64_t TxStartTime;
-    uint64_t TxFinishTime;
+    int64_t baseTxTime;
+    int64_t TxTime;
+    int64_t TxStartTime;
+    int64_t TxFinishTime;
     float slowDown;
-    uint64_t theoreticalStartTime;
-    uint64_t theoreticalFinishTime;
+    int64_t theoreticalStartTime;
+    int64_t theoreticalFinishTime;
 
     vector<uint32_t> dependFlows;
     vector<uint32_t> invokeFlows;
@@ -260,13 +260,13 @@ struct Flow {
     
     Flow() {
         size = -1;
-        TxTime=-1;
-        baseTxTime = -1;
-        TxStartTime = -1;
-        TxFinishTime = -1;
+        TxTime = 0;
+        baseTxTime = 0;
+        TxStartTime = 0;
+        TxFinishTime = 0;
         slowDown = -1;
-        theoreticalStartTime = -1;
-        theoreticalFinishTime = -1;
+        theoreticalStartTime = 0;
+        theoreticalFinishTime = 0;
     }
 
     void print(bool simple = true, const std::string& outputTarget = "stdout") {
@@ -322,8 +322,8 @@ map<uint32_t, Flow> flowMap;
 void PrintFlowMap(bool flow_only=true, bool simple=false, const std::string& outputTarget="flowstatistics.txt") {
     std::cout << "flowMap" << std::endl;
     // can do some statistics here
-    uint64_t RealEndTime = 0;
-    uint64_t IdealEndTime = 0;
+    int64_t RealEndTime = 0;
+    int64_t IdealEndTime = 0;
     for (auto it = flowMap.begin(); it != flowMap.end(); ++it) {
         uint32_t flowId = it->first;
         Flow flow = it->second;
