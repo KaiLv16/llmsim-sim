@@ -568,7 +568,7 @@ void RelationalFlowStart(uint32_t flowid) {
     dst = node2phynode[vnode2node[currentFlow.dst]];
 
     // only works for those flow doesn't have pre-conditions.
-    if (currentFlow.theoreticalStartTime == -1) {      // 等于-1，意味着之前没有任何前置的Flow修改它，因而这些flow没有任何前置流。
+    if (currentFlow.dependFlows.size() == 0) {      // 这些flow没有任何前置流。
         currentFlow.theoreticalStartTime = Simulator::Now().GetTimeStep();
         printf("Flow %u: Bind the start time to the starting stream.\n", flowid);
     }
