@@ -303,16 +303,16 @@ struct Flow {
         }
         *outStream << "], note=\"" << note << "\" \n";
 
-        if (!simple) {
-            *outStream << "    TxTime=" << TxTime 
-                    << ", baseTxTime=" << baseTxTime 
-                    << ", TxStartTime=" << (TxStartTime - base_ns) 
-                    << ", TxFinishTime=" << (TxFinishTime - base_ns) 
+        if (!(simple && pg == -1)) {
+            *outStream << "    TxTime=" << TxTime / 1000.0      // 都是us
+                    << ", baseTxTime=" << baseTxTime / 1000.0
+                    << ", TxStartTime=" << (TxStartTime - base_ns) / 1000.0
+                    << ", TxFinishTime=" << (TxFinishTime - base_ns) / 1000.0
                     << ", slowDown=" << slowDown 
-                    << ", IdealStartTime=" << (theoreticalStartTime - base_ns) 
-                    << ", IdealFinishTime=" << (theoreticalFinishTime - base_ns)
-                    << ", IdealStartTime_noCalc=" << (theoreticalStartTime_NoCalc - base_ns) 
-                    << ", FinishTime_noCalc=" << (theoreticalFinishTime_Nocalc - base_ns) << "\n";
+                    << ", IdealStartTime=" << (theoreticalStartTime) / 1000.0
+                    << ", IdealFinishTime=" << (theoreticalFinishTime) / 1000.0
+                    << ", IdealStartTime_noCalc=" << (theoreticalStartTime_NoCalc) / 1000.0
+                    << ", IdealFinishTime_noCalc=" << (theoreticalFinishTime_Nocalc) / 1000.0 << "\n";
         }
 
         // 如果使用文件输出，则关闭文件
@@ -337,9 +337,9 @@ void PrintFlowMap(bool flow_only=true, bool simple=false, const std::string& out
         if (!(flow_only && flow.pg == -1)){
             // printf("Flow ID: %u\n", flowId);
             flow.print(simple, outputTarget);  // 调用 Flow 结构中的打印函数
-            IdealEndTime = std::max(flow.theoreticalFinishTime - int64_t(global_sim_start_time * 1000000000.0), IdealEndTime);
             RealEndTime = std::max(flow.TxFinishTime - int64_t(global_sim_start_time * 1000000000), RealEndTime);
-            IdealEndTime = std::max(flow.theoreticalFinishTime_Nocalc - int64_t(global_sim_start_time * 1000000000.0), IdealEndTime);
+            IdealEndTime = std::max(flow.theoreticalFinishTime, IdealEndTime);
+            IdealEndTime_NoCalc = std::max(flow.theoreticalFinishTime_Nocalc, IdealEndTime_NoCalc);
         }
     }
     std::ostream* outStream = &std::cout; // 默认输出到标准输出
@@ -355,7 +355,8 @@ void PrintFlowMap(bool flow_only=true, bool simple=false, const std::string& out
     *outStream << "    IdealEndTime=" << IdealEndTime / 1000000.0
                << "ms, IdealEndTime(NoCalc)=" << IdealEndTime_NoCalc / 1000000.0
                << "ms, RealEndTime=" << RealEndTime / 1000000.0
-               << "ms, NoCalcSlowDown=" << double(RealEndTime - (IdealEndTime - IdealEndTime_NoCalc)) / double(IdealEndTime_NoCalc)
+               << "ms (FlowOnlyRealEndTime=" << double(RealEndTime - (IdealEndTime - IdealEndTime_NoCalc)) / 1000000.0
+               << "ms), NoCalcSlowDown=" << double(RealEndTime - (IdealEndTime - IdealEndTime_NoCalc)) / double(IdealEndTime_NoCalc)
                << ", totalSlowDown=" << double(RealEndTime) / double(IdealEndTime)
                << "\n";
     if (outputTarget != "stdout") {
@@ -579,7 +580,7 @@ void RelationalFlowStart(uint32_t flowid) {
 
     // only works for those flow doesn't have pre-conditions.
     if (currentFlow.dependFlows.size() == 0) {      // 这些flow没有任何前置流。
-        currentFlow.theoreticalStartTime = currentFlow.lat;
+        currentFlow.theoreticalStartTime = currentFlow.lat * 1000;  // ns
         currentFlow.theoreticalStartTime_NoCalc = 0;
         printf("Flow %u: Bind the start time to the starting stream.\n", flowid);
     }
@@ -643,8 +644,6 @@ void RelationalFlowEnd(uint32_t flowid) {
     std::cerr << Simulator::Now() << ftype1 << currentFlow.id << " Finish. ";
     if (currentFlow.pg == 3) {
         currentFlow.slowDown = double(currentFlow.TxTime) / double(currentFlow.baseTxTime);
-        std::cerr << "note=\"" << currentFlow.note << "\", IdealTxTime=" << currentFlow.baseTxTime / 1000 
-        << "us, RealTxTime=" << currentFlow.TxTime / 1000.0 << "us, SlowDown=" << currentFlow.slowDown;
         maxSlowDown = std::max(maxSlowDown, currentFlow.slowDown);
     }
     std::cout << "\n";
@@ -653,7 +652,7 @@ void RelationalFlowEnd(uint32_t flowid) {
     for (uint32_t invokedFlowId : currentFlow.invokeFlows) {
         dependencies[invokedFlowId]--;
         Flow& newFlow = flowMap[invokedFlowId];
-        newFlow.theoreticalStartTime = std::max(currentFlow.theoreticalFinishTime, newFlow.theoreticalStartTime + newFlow.lat * 1000000000);
+        newFlow.theoreticalStartTime = std::max(currentFlow.theoreticalFinishTime, newFlow.theoreticalStartTime + newFlow.lat * 1000);
         newFlow.theoreticalStartTime_NoCalc = std::max(currentFlow.theoreticalFinishTime_Nocalc, newFlow.theoreticalStartTime_NoCalc);
         if (dependencies[invokedFlowId] == 0) {
             readyQueue.push(invokedFlowId);
@@ -661,6 +660,7 @@ void RelationalFlowEnd(uint32_t flowid) {
             std::cerr << Simulator::Now() << ftype2 << invokedFlowId << " becomes Ready.\n";
         }
     }
+    currentFlow.print(true, "stdout");
     ScheduleFlowRelational();
 }
 
