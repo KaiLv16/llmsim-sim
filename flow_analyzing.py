@@ -51,6 +51,7 @@ def main(fname=None):
     matching_flow_ids = find_matching_flow_ids(filename, keyword_lists)
 
     print("Matching FlowIds:", matching_flow_ids)
+    print("Matching Item Cnt:", len(matching_flow_ids))
 
 if __name__ == "__main__":
     main()

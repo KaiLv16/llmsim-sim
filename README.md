@@ -91,9 +91,19 @@ qlen_aware_egress = 0           # 随机spray
 
 可以从上述 `llm_flow.txt` 中看到每条流的编号。如果要绘制其中某一些编号的流的flow_rate，需要在 `config/flow_to_draw.txt` 中添加他们的编号。
 
-你可以使用`python3 get_invoke_chain.py`，并修改 `flow_id` 来获取你想看到的流及它invoke的流的ID。你可以把这个函数的输出复制粘贴到 `config/flow_to_be_plotted.py` 中，这样绘图程序就只绘制在这个list中的流了。
-
 在 `config/flow_to_be_plotted.py` 中，第一行是你想要绘制的流的起始、终止行数。你可以使用 `# ` 来方便地注释掉其中一些行（这也是为什么要把文件命名为 `.py` 的原因 :) ） 
+
+- 你可以使用`python3 get_invoke_chain.py`，并修改 `flow_id` 来获取你想看到的流及它invoke的流的ID。你可以把这个函数的输出复制粘贴到 `config/flow_to_be_plotted.py` 中，这样绘图程序就只绘制在这个list中的流了。
+
+- 你还可以使用`python3 flow_analyzing.py`，使用特定的字符串的匹配来给出满足对应字符串的所有flow。比如：
+```
+    keyword_lists = [
+        ["priority=3", "DP", "mlp"],  # Flow, DP, MLP
+        ["priority=-1", "Reduce-Scatter"]
+    ]
+```
+- 你还可以添加更多过滤算法，找到自己想绘制的流。总之，把他们粘贴到`config/flow_to_be_plotted.py`就好！
+
 
 
 #### 运行绘图程序
