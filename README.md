@@ -118,6 +118,8 @@ python3 plot_flow_rate.py --x_min 0.075 --x_max 0.0875 --threshold 10
 python3 plot_flow_rate.py --x_min 19 --x_max 28 --type send
 
 python3 plot_flow_rate.py --type send --configID 'dcqcn(1)_fecmp(0)_pfc1_irn0'
+
+python3 plot_flow_rate.py --type send --configID 'dcqcn(1)_switch_spray(12)_pfc0_irn1'
 ```
 
 #### 开发tips
