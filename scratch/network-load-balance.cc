@@ -301,7 +301,7 @@ struct Flow {
         for (int i = 0; i < invokeFlows.size(); i++) {
             *outStream << invokeFlows[i] << " ";
         }
-        *outStream << "], note=\"" << note << "\" \n";
+        *outStream << "], note=\"" << note << "\" ";
 
         if (!(simple && pg == -1)) {
             *outStream << "    TxTime=" << TxTime / 1000.0      // 都是us
