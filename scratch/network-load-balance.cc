@@ -312,7 +312,9 @@ struct Flow {
                     << ", IdealStartTime=" << (theoreticalStartTime) / 1000.0
                     << ", IdealFinishTime=" << (theoreticalFinishTime) / 1000.0
                     << ", IdealStartTime_noCalc=" << (theoreticalStartTime_NoCalc) / 1000.0
-                    << ", IdealFinishTime_noCalc=" << (theoreticalFinishTime_Nocalc) / 1000.0 << "\n";
+                    << ", IdealFinishTime_noCalc=" << (theoreticalFinishTime_Nocalc) / 1000.0 
+                    << ", idealDelta=" << (theoreticalStartTime - theoreticalStartTime_NoCalc) / 1000.0
+                    << "\n";
         }
 
         // 如果使用文件输出，则关闭文件
@@ -352,11 +354,11 @@ void PrintFlowMap(bool flow_only=true, bool simple=false, const std::string& out
         }
         outStream = &outFile; // 改变输出流为文件流
     }
-    *outStream << "    IdealEndTime=" << IdealEndTime / 1000000.0
-               << "ms, IdealEndTime(NoCalc)=" << IdealEndTime_NoCalc / 1000000.0
-               << "ms, RealEndTime=" << RealEndTime / 1000000.0
-               << "ms (FlowOnlyRealEndTime=" << double(RealEndTime - (IdealEndTime - IdealEndTime_NoCalc)) / 1000000.0
-               << "ms), NoCalcSlowDown=" << double(RealEndTime - (IdealEndTime - IdealEndTime_NoCalc)) / double(IdealEndTime_NoCalc)
+    *outStream << "    IdealEndTime=" << IdealEndTime / 1000.0
+               << "us, IdealEndTime(NoCalc)=" << IdealEndTime_NoCalc / 1000.0
+               << "us, RealEndTime=" << RealEndTime / 1000.0
+               << "us (FlowOnlyRealEndTime=" << double(RealEndTime - (IdealEndTime - IdealEndTime_NoCalc)) / 1000.0
+               << "us), NoCalcSlowDown=" << double(RealEndTime - (IdealEndTime - IdealEndTime_NoCalc)) / double(IdealEndTime_NoCalc)
                << ", totalSlowDown=" << double(RealEndTime) / double(IdealEndTime)
                << "\n";
     if (outputTarget != "stdout") {
@@ -396,10 +398,27 @@ void trim(string &s) {
     s.erase(s.find_last_not_of(' ') + 1); // trim trailing spaces
 }
 
+std::string extractNote(const std::string& input) {
+    std::string prefix = "<<";
+    std::string suffix = ">>";
+
+    size_t start = input.find(prefix);
+    size_t end = input.find(suffix, start);
+
+    if (start != std::string::npos && end != std::string::npos) {
+        start += prefix.length(); // 调整起始位置
+        return input.substr(start, end - start);
+    }
+
+    return ""; // 如果没有找到，则返回空字符串
+}
+
 void ParseRelationalFlowFile(string fileName) {
     std::cout << "read   relational   flow    input" << std::endl;
     ifstream file(fileName);
     string line;
+    std::string prefix = "<<";
+    std::string suffix = ">>";
 
     // 读取第一行，获取流的总数量
     // flowf.open(flow_file.c_str());
@@ -463,19 +482,16 @@ void ParseRelationalFlowFile(string fileName) {
             }
         }
         // 使用正则表达式提取 note 内容
-        std::regex note_regex(R"(note=<([^>]*)>)");
-        std::smatch note_match;
-        if (std::regex_search(line, note_match, note_regex)) {
-            std::string note_content = note_match[1]; // 获取 <xxx> 中的内容
-            flow.note = note_content; // 假设 Flow 类中有一个 string 类型的 note 成员
+        // std::regex note_regex(R"(note=<<([^>]+)>>)");
+        // std::smatch note_match;
+        // if (std::regex_search(line, note_match, note_regex)) {
+        //     std::string note_content = note_match[1]; // 获取 <xxx> 中的内容
+        //     flow.note = note_content; // 假设 Flow 类中有一个 string 类型的 note 成员
+        // }
+        flow.note = extractNote(line);
+        if (flow.note.empty()) {
+            std::cout << "No matching NOTE found." << std::endl;
         }
-        // if (cur_flow_num < 40)
-        //     flow.print();
-
-        // assert(n.Get(flow.src)->GetNodeType() == 0 &&
-            //    n.Get(flow.dst)->GetNodeType() == 0);
-
-        // flow.print();
 
         flow.sent = false;
         flowMap[flow.id] = flow;
