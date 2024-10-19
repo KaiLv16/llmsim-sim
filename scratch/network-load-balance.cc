@@ -313,10 +313,9 @@ struct Flow {
                     << ", IdealFinishTime=" << (theoreticalFinishTime) / 1000.0
                     << ", IdealStartTime_noCalc=" << (theoreticalStartTime_NoCalc) / 1000.0
                     << ", IdealFinishTime_noCalc=" << (theoreticalFinishTime_Nocalc) / 1000.0 
-                    << ", idealDelta=" << (theoreticalStartTime - theoreticalStartTime_NoCalc) / 1000.0
-                    << "\n";
+                    << ", idealDelta=" << (theoreticalStartTime - theoreticalStartTime_NoCalc) / 1000.0;                    
         }
-
+        *outStream << "\n";
         // 如果使用文件输出，则关闭文件
         if (outputTarget != "stdout") {
             outFile.close();

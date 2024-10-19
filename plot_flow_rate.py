@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from collections import defaultdict
 import argparse
+from tqdm import tqdm
 
 
 def parse_args():
@@ -84,7 +85,8 @@ def read_flowid_from_file(filename):
             for line in lines[i - 2:j - 1]:  # 获取从第i行到第j行的内容
                 # 跳过以#开头的行
                 if not line.strip().startswith('#'):
-                    numbers = list(map(int, line.strip().split()))
+                    # 将逗号替换为空格，然后分割
+                    numbers = list(map(int, line.replace(',', ' ').split()))
                     combined_list.extend(numbers)
             return combined_list
         else:
@@ -94,20 +96,20 @@ def read_flowid_from_file(filename):
 
 if use_pkl == False or not os.path.exists(f'results/{config_ID}{appendnx}/flow_send_rate.pkl'):
     with open(f'mix/output/{config_ID}{appendnx}/{config_ID}_snd_rcv_record_file.txt', 'r') as file:
-        for line in file:
-            if 'do spray:' in line:
+        for line in tqdm(file, desc='parse file'):
+            if 'do spray' in line:
                 continue
             # print(line)
             parts = line.split()
             timestamp_ns = int(parts[0][:-1]) - 2000000000  # 时间（ns）  # 去掉冒号
             character = parts[1]
             node_id = int(parts[2])
-            assert parts[3] == 'NIC'
+            assert parts[3] == 'NIC', f'{line}'
             port_num = int(parts[4])
             action = parts[5]  # send or recv
-            assert parts[6] == 'a'
+            assert parts[6] == 'a', f'{line}'
             pkt_type = parts[7]
-            assert parts[8] == 'pkt.'
+            assert parts[8] == 'pkt.', f'{line}'
             size = int(parts[9].split('=')[1])
             flowid = int(parts[10].split('=')[1])
             seq = int(parts[11].split('=')[1])
@@ -263,9 +265,11 @@ print(f"current curve in \'flow_to_be_plotted.py\': {flow_list}")
 plt.figure(figsize=(10, 6))
 
 if 'send' in args.type:
-    for flowid_type, rate in flow_send_rate.items():
+    for flowid_type, rate in tqdm(flow_send_rate.items(), desc='draw send'):
+        print(flowid_type[0], end=' ')
         if flow_list is None or (flow_list is not None and flowid_type[0] in flow_list):
             # 转换为 Gbps
+            print(flowid_type[0], len(rate))
             time_axis = np.arange(len(rate)) * time_interval / 1000000  # 转换为 ms
             # x_max = min(time_axis[-1], args.x_max)
             # x_min = max(time_axis[0],  args.x_min)
@@ -281,7 +285,7 @@ if 'send' in args.type:
             # plt.plot(time_axis, rate, label=f'Flow {flowid_type} Sending Rate')
 
 if 'recv' in args.type:
-    for flowid_type, rate in flow_recv_rate.items():
+    for flowid_type, rate in tqdm(flow_recv_rate.items(), desc='draw send'):
         if flow_list is None or (flow_list is not None and flowid_type[0] in flow_list):
             # 转换为 Gbps
             time_axis = np.arange(len(rate)) * time_interval / 1000000  # 转换为 ms

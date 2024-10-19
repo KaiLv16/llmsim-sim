@@ -37,7 +37,6 @@ def main(fname=None):
     with open("mix/last_param.txt", 'r') as file:
         config_id = file.readline().strip()  # 读取第一行并去除空白字符
 
-    # 构造输出文件名
     filename = f"mix/output/{config_id}/{config_id}_flow_statistics_output.txt"
 
     if fname is not None:
@@ -55,3 +54,5 @@ def main(fname=None):
 
 if __name__ == "__main__":
     main()
+
+    print(contains_all('FlowId=128 priority=3 src=17 dst=30 size=8388608 ', ["priority=3", "1"]))
