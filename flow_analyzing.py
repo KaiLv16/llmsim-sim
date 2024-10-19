@@ -43,7 +43,7 @@ def main(fname=None):
         filename = fname
 
     keyword_lists = [
-        ["priority=3", "DP"],  # Flow, DP
+        ["priority=3", "DP", "71"],  # Flow, DP
         # ["priority=-1", "Reduce-Scatter"]
     ]
 
