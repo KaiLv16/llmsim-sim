@@ -639,6 +639,7 @@ void RelationalFlowStart(uint32_t flowid) {
     else {   // 处理 Dep
         std::cerr << Simulator::Now() << " dealing dep " << currentFlow.id << 
             ": node " << currentFlow.src << " (" << src << ") -> node " << currentFlow.dst << " (" << dst << ")" << std::endl;
+        currentFlow.theoreticalStartTime += currentFlow.lat * 1000;      // ns
         currentFlow.theoreticalFinishTime = currentFlow.theoreticalStartTime;
         currentFlow.theoreticalFinishTime_Nocalc = currentFlow.theoreticalStartTime_NoCalc;
         Simulator::Schedule(MicroSeconds(currentFlow.lat), &RelationalFlowEnd, currentFlow.id);
