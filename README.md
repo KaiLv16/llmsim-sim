@@ -83,7 +83,7 @@ inline int get_pkt_status(uint32_t l3Prot){
 qlen_aware_egress = 1           # 负载感知的spray
 qlen_aware_egress = 0           # 随机spray
 ```
-
+还可以通过设置`alpha`来精细控制负载感知的容忍度。
 
 ### 绘制流量：
 
