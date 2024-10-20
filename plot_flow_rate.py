@@ -27,7 +27,7 @@ def parse_args():
 
 # 定义每个包的大小 (字节)
 pkt_size = 1000 * 8  # 转换为比特
-time_interval = 5000  # 区间长度，以ns为单位
+time_interval = 1000  # 区间长度，以ns为单位
 
 # 参数：是否平滑以及平滑窗口的范围
 enable_smoothing = True  # 是否启用平滑
@@ -260,16 +260,22 @@ flow_list = read_flowid_from_file('config/flow_to_be_plotted.py')
 # assert flow_list is not None
 print(f"current curve in \'flow_to_be_plotted.py\': {flow_list}")
 
+# see `flow_analyzing.py` for details. 
+with open(f'config/flowid_rtt.pkl', 'rb') as file:
+    id_rtt_pair = pickle.load(file)
 
 # 绘制图表
 plt.figure(figsize=(10, 6))
 
+# 只有 note 中包含这个字符串的才会被打印
+addition_cond_str = "71, 143"
+
 if 'send' in args.type:
     for flowid_type, rate in tqdm(flow_send_rate.items(), desc='draw send'):
-        print(flowid_type[0], end=' ')
+        # print(flowid_type[0], end=' ')
         if flow_list is None or (flow_list is not None and flowid_type[0] in flow_list):
             # 转换为 Gbps
-            print(flowid_type[0], len(rate))
+            # print(flowid_type[0], len(rate))
             time_axis = np.arange(len(rate)) * time_interval / 1000000  # 转换为 ms
             # x_max = min(time_axis[-1], args.x_max)
             # x_min = max(time_axis[0],  args.x_min)
@@ -280,12 +286,12 @@ if 'send' in args.type:
             # print(flowid_type, rate, 'Global max:', max(rate), '; ', y_sub, 'Interval max:', max(y_sub))
             
             if len(x_sub) > 0 and len(y_sub) > 0:
-                label = f'Flow {flowid_type} Snd Rate' if np.max(y_sub) > args.threshold else '_nolegend_'
+                label = f'{flowid_type} Snd (rtt={id_rtt_pair[flowid_type[0]][0]}, note={id_rtt_pair[flowid_type[0]][1]})' if np.max(y_sub) > args.threshold else '_nolegend_'
                 plt.plot(x_sub, y_sub, label=label)
             # plt.plot(time_axis, rate, label=f'Flow {flowid_type} Sending Rate')
 
 if 'recv' in args.type:
-    for flowid_type, rate in tqdm(flow_recv_rate.items(), desc='draw send'):
+    for flowid_type, rate in tqdm(flow_recv_rate.items(), desc='draw recv'):
         if flow_list is None or (flow_list is not None and flowid_type[0] in flow_list):
             # 转换为 Gbps
             time_axis = np.arange(len(rate)) * time_interval / 1000000  # 转换为 ms
@@ -298,7 +304,7 @@ if 'recv' in args.type:
             # print(flowid_type, rate, 'Global max:', max(rate), '; ', y_sub, 'Interval max:', max(y_sub))
             
             if len(x_sub) > 0 and len(y_sub) > 0:
-                label = f'Flow {flowid_type} Rcv Rate' if np.max(y_sub) > args.threshold else '_nolegend_'
+                label = f'{flowid_type} Rcv (rtt={id_rtt_pair[flowid_type[0]][0]}, note={id_rtt_pair[flowid_type[0]][1]})' if np.max(y_sub) > args.threshold else '_nolegend_'
                 plt.plot(x_sub, y_sub, label=label)
             # plt.plot(time_axis, rate, label=f'Flow {flowid_type} Sending Rate')
 
@@ -313,12 +319,13 @@ plt.title(f'Sending / Receiving Rates per Flow ({config_ID})')
 # plt.legend(loc='best')
 
 # 设置图例，并将其放在图片下方
-plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.1), ncol=4)
+plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.1), ncol=2)
 
 # 设置图例，并将其放在图片外
 # plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
 plt.grid(True)
+plt.subplots_adjust(bottom=0.4)  # 0.2 为下边距的比例（0 到 1 之间）
 
 # 保存为PDF，不裁切边界
 plt.savefig(f'results/{config_ID}{appendnx}/flow_rates.pdf', format='pdf', bbox_inches='tight', pad_inches=0.1)

@@ -245,6 +245,9 @@ struct Flow {
     uint32_t dst;
     int size;
     uint32_t lat;
+    uint64_t base_rtt;
+    uint64_t base_bdp;
+
     int64_t baseTxTime;
     int64_t TxTime;
     int64_t TxStartTime;
@@ -262,6 +265,7 @@ struct Flow {
     
     Flow() {
         size = -1;
+        base_rtt = 0;
         TxTime = 0;
         baseTxTime = 0;
         TxStartTime = 0;
@@ -291,7 +295,7 @@ struct Flow {
 
         // 使用 outStream 进行输出
         *outStream << "FlowId=" << id << " priority=" << pg << " src=" << src << " dst=" << dst 
-                << " size=" << size << " lat=" << lat << " dep_flow=[";
+                << " size=" << size << " lat=" << lat << " RTT=" << base_rtt << " dep_flow=[";
         
         for (int i = 0; i < dependFlows.size(); i++) {
             *outStream << dependFlows[i] << " ";
@@ -600,9 +604,9 @@ void RelationalFlowStart(uint32_t flowid) {
         printf("Flow %u: Bind the start time to the starting stream.\n", flowid);
     }
     currentFlow.TxStartTime = Simulator::Now().GetTimeStep();
-
+    currentFlow.base_rtt = double(pairRtt[n.Get(src)][n.Get(dst)]);
     if (pg == 3) {
-        currentFlow.baseTxTime = double(currentFlow.size) * 8.0 / 95.0 + double(pairRtt[n.Get(src)][n.Get(dst)]);      // ms, 95 means 95b/ns
+        currentFlow.baseTxTime = double(currentFlow.size) * 8.0 / 95.0 + double(pairRtt[n.Get(src)][n.Get(dst)]) / 2.0;      // ms, 95 means 95b/ns
         // 这里我们认为 Flow （非Dep）的前置lat都是0，所以这里没加上
         currentFlow.theoreticalFinishTime = currentFlow.theoreticalStartTime + currentFlow.baseTxTime;        // ns
         currentFlow.theoreticalFinishTime_Nocalc = currentFlow.theoreticalStartTime_NoCalc + currentFlow.baseTxTime;        // ns
@@ -2636,7 +2640,7 @@ int main(int argc, char *argv[]) {
         打印flow信息
     */
 
-    PrintFlowMap(false, true, flow_statistics_output_file);
+    PrintFlowMap(false, false, flow_statistics_output_file);
     // PrintFlowMap(true, false, "stdout");         // 也可以输出到标准输出
     /*-----------------------------------------------------------------------------*/
     /*----- we don't need below. Just we can enforce to close this simulation. -----*/

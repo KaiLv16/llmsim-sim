@@ -50,7 +50,8 @@ cecho "YELLOW" "----------------------------------\n"
 
 # 生成拓扑
 cecho "GREEN" "Generating Topo file..."
-python3 cross_az_topo_gen.py -n ${NUM_AZ} -w ${dci_link_num} -i ${dci_switch_num} -c ${core_switch_num} -t ${tor_switch_num} -s ${n_server_per_tor} -B ${DCI_SPEED} -b ${DCN_SPEED} -r ${TOR_SPEED} -L "[(0, 1, '1ms')]" -l 1us -o dumbbell -O ${TOPOLOGY}
+python3 cross_az_topo_gen.py -n ${NUM_AZ} -w ${dci_link_num} -i ${dci_switch_num} -c ${core_switch_num} -t ${tor_switch_num} -s ${n_server_per_tor} \
+                             -B ${DCI_SPEED} -b ${DCN_SPEED} -r ${TOR_SPEED} -L "[(0, 1, '500us')]" -l 1us -o dumbbell -O ${TOPOLOGY}
 
 # 命令最后加上 &，可以让这个进行在后台运行。
 # running test 

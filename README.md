@@ -105,7 +105,6 @@ qlen_aware_egress = 0           # 随机spray
 - 你还可以添加更多过滤算法，找到自己想绘制的流。总之，把他们粘贴到`config/flow_to_be_plotted.py`就好！
 
 
-
 #### 运行绘图程序
 
 该程序使用了`mix/output/test_<x>/test_<x>_snd_rcv_record_file.txt` 中的数据包收发的log：
