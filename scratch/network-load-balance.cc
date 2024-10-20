@@ -294,13 +294,13 @@ struct Flow {
         uint64_t base_ns = global_sim_start_time * 1000000000;
 
         // 使用 outStream 进行输出
-        *outStream << "FlowId=" << id << " priority=" << pg << " src=" << src << " dst=" << dst 
-                << " size=" << size << " lat=" << lat << " RTT=" << base_rtt << " dep_flow=[";
+        *outStream << "FlowId=" << id << ", priority=" << pg << ", src=" << src << ", dst=" << dst 
+                << ", size=" << size << ", lat=" << lat << ", RTT=" << base_rtt << ", dep_flow=[";
         
         for (int i = 0; i < dependFlows.size(); i++) {
             *outStream << dependFlows[i] << " ";
         }
-        *outStream << "] invoke_flow=[";
+        *outStream << "], invoke_flow=[";
 
         for (int i = 0; i < invokeFlows.size(); i++) {
             *outStream << invokeFlows[i] << " ";
@@ -308,7 +308,7 @@ struct Flow {
         *outStream << "], note=\"" << note << "\" ";
 
         if (!(simple && pg == -1)) {
-            *outStream << "    TxTime=" << TxTime / 1000.0      // 都是us
+            *outStream << ",    TxTime=" << TxTime / 1000.0      // 都是us
                     << ", baseTxTime=" << baseTxTime / 1000.0
                     << ", TxStartTime=" << (TxStartTime - base_ns) / 1000.0
                     << ", TxFinishTime=" << (TxFinishTime - base_ns) / 1000.0
@@ -327,6 +327,7 @@ struct Flow {
     }
 };
 float maxSlowDown = 0;
+float maxDPSlowDown = 0;
 int64_t maxEndTime = 0;
 
 // key: Flow.id   value: Flow结构体
@@ -358,7 +359,7 @@ void PrintFlowMap(bool flow_only=true, bool simple=false, const std::string& out
         }
         outStream = &outFile; // 改变输出流为文件流
     }
-    *outStream << "    IdealEndTime=" << IdealEndTime / 1000.0
+    *outStream << ",    IdealEndTime=" << IdealEndTime / 1000.0
                << "us, IdealEndTime(NoCalc)=" << IdealEndTime_NoCalc / 1000.0
                << "us, RealEndTime=" << RealEndTime / 1000.0
                << "us (FlowOnlyRealEndTime=" << double(RealEndTime - (IdealEndTime - IdealEndTime_NoCalc)) / 1000.0
@@ -666,6 +667,11 @@ void RelationalFlowEnd(uint32_t flowid) {
     if (currentFlow.pg == 3) {
         currentFlow.slowDown = double(currentFlow.TxTime) / double(currentFlow.baseTxTime);
         maxSlowDown = std::max(maxSlowDown, currentFlow.slowDown);
+        std::string subStr = "DP";
+        std::size_t found = currentFlow.note.find(subStr);  
+        if (found != std::string::npos) {
+            maxDPSlowDown = std::max(maxDPSlowDown, currentFlow.slowDown);
+        }
     }
     std::cout << "\n";
 
@@ -2653,5 +2659,6 @@ int main(int argc, char *argv[]) {
     endt = clock();
     std::cerr << (double)(endt - begint) / CLOCKS_PER_SEC << "\n";
     std::cerr << "maxSlowDown: " << maxSlowDown << std::endl;
+    std::cerr << "maxDPSlowDown: " << maxDPSlowDown << std::endl;
     std::cerr << "maxEndTime: " << maxEndTime << std::endl;
 }

@@ -1,5 +1,61 @@
 import pickle
 from pprint import pprint
+import pandas as pd
+
+def parse_flow_statistics(file_path):
+    # 读取文件
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+
+    # 解析每一行
+    data = []
+    for line in lines:
+        if line.startswith("FlowId"):
+            # 提取 note 字段
+            start = line.find('note="') + 6
+            end = line.rfind('"')
+            note = line[start:end] if start > 5 and end > start else ''
+
+            # 删除 note 部分
+            line = line[:line.find('note="')] + line[line.find('"', end + 1) + 1:]
+
+            # 按照逗号分割每一项
+            parts = line.strip().split(',')
+            entry = {}
+
+            for part in parts:
+                key_value = part.split('=', 1)  # 只分割成键值对
+                if len(key_value) == 2:
+                    key = key_value[0].strip()
+                    value = key_value[1].strip()
+                    # print(f"{key}-{value}-")
+                    # 尝试将值转换为数字
+                    if value.isdigit():  # 检查是否为整数
+                        # print(f"{key}--{value}--")
+                        entry[key] = int(value)
+                    else:
+                        try:
+                            entry[key] = float(value)  # 尝试转换为浮点数
+                        except ValueError:
+                            entry[key] = value  # 如果转换失败，保留为字符串
+
+            entry['note'] = note  # 将 note 添加到字典中
+            data.append(entry)
+
+    # 创建 DataFrame
+    df = pd.DataFrame(data)
+
+    # 将 note 列移到最后
+    cols = [col for col in df.columns if col != 'note'] + ['note']
+    df = df[cols]
+
+    # 设置打印选项，避免横向折叠
+    pd.set_option('display.expand_frame_repr', False)
+    pd.set_option('display.max_columns', None)  # 显示所有列
+    pd.set_option('display.max_colwidth', None)  # 显示每列的最大宽度
+
+    return df
+
 
 def contains_all(line, keywords):
     """检查行中是否包含所有关键字。"""
@@ -62,6 +118,11 @@ def main(fname=None):
 
     if fname is not None:
         filename = fname
+
+    print(filename)
+    
+    df = parse_flow_statistics(filename)
+    print(df.head(50))  # n 是您想打印的行数
 
     keyword_lists1 = [[" "]]
     
