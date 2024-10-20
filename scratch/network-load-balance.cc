@@ -327,6 +327,7 @@ struct Flow {
     }
 };
 float maxSlowDown = 0;
+int64_t maxEndTime = 0;
 
 // key: Flow.id   value: Flow结构体
 map<uint32_t, Flow> flowMap;
@@ -681,6 +682,7 @@ void RelationalFlowEnd(uint32_t flowid) {
         }
     }
     currentFlow.print(true, "stdout");
+    maxEndTime = std::max(maxEndTime, currentFlow.TxFinishTime);
     ScheduleFlowRelational();
 }
 
@@ -2650,5 +2652,6 @@ int main(int argc, char *argv[]) {
     NS_LOG_INFO("Done.");
     endt = clock();
     std::cerr << (double)(endt - begint) / CLOCKS_PER_SEC << "\n";
-    std::cerr << "maxSlowDown" << maxSlowDown << std::endl;
+    std::cerr << "maxSlowDown: " << maxSlowDown << std::endl;
+    std::cerr << "maxEndTime: " << maxEndTime << std::endl;
 }
