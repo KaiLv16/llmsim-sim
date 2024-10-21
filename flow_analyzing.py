@@ -61,6 +61,7 @@ def contains_all(line, keywords):
     """检查行中是否包含所有关键字。"""
     return all(keyword in line for keyword in keywords)
 
+
 def find_matching_flow_ids(filename, keyword_lists):
     """查找满足条件的 FlowId 列表。"""
     matching_flow_ids = []
@@ -69,40 +70,48 @@ def find_matching_flow_ids(filename, keyword_lists):
 
     with open(filename, 'r') as file:
         for line in file:
-            # 提取 FlowId
-            parts = line.split()
-            flow_id = None
-            rtt = None
-            
-            for part in parts:
-                if part.startswith("FlowId="):
-                    flow_id = int(part.split("=")[1])
-                    break
-            
-            for part in parts:
-                if part.startswith("RTT="):
-                    rtt = int(part.split("=")[1])
-                    break
-            
-            if flow_id is None:
-                print('flowId not found!')
-                continue  # 如果没有找到 FlowId，跳过此行
+            if line.startswith("FlowId"):
+                # 提取 note 字段
+                start = line.find('note="') + 6
+                end = line.rfind('"')
+                note = line[start:end] if start > 5 and end > start else ''
 
-            if rtt is None:
-                print('rtt not found!')
-                continue  # 如果没有找到 FlowId，跳过此行
-            
-            start = line.find('note="') + 6
-            end = line.rfind('"')
-            note = line[start:end]
+                # 删除 note 部分
+                line = line[:line.find('note="')] + line[line.find('"', end + 1) + 1:]
 
-            # 检查每个关键字列表
-            for keywords in keyword_lists:
-                if contains_all(line, keywords):
-                    matching_flow_ids.append(flow_id)
-                    matching_flow_rtts.append(rtt)
-                    matching_flow_notes.append(note)
-                    break  # 找到匹配后跳出循环，继续处理下一行
+                # 按照逗号分割每一项
+                parts = line.strip().split(',')
+                entry = {}
+
+                flow_id = None
+                rtt = None
+            
+                for part in parts:
+                    if part.strip().startswith("FlowId="):
+                        flow_id = int(part.split("=")[1])
+                        break
+                
+                for part in parts:
+                    if part.strip().startswith("RTT="):
+                        rtt = int(part.split("=")[1])
+                        break
+                
+                if flow_id is None:
+                    print('flowId not found!')
+                    continue  # 如果没有找到 FlowId，跳过此行
+
+                if rtt is None:
+                    print(line)
+                    print('rtt not found!')
+                    continue  # 如果没有找到 FlowId，跳过此行
+
+                # 检查每个关键字列表
+                for keywords in keyword_lists:
+                    if contains_all(line, keywords):
+                        matching_flow_ids.append(flow_id)
+                        matching_flow_rtts.append(rtt)
+                        matching_flow_notes.append(note)
+                        break  # 找到匹配后跳出循环，继续处理下一行
 
     return matching_flow_ids, matching_flow_rtts, matching_flow_notes
 
@@ -122,7 +131,7 @@ def main(fname=None):
     print(filename)
     
     df = parse_flow_statistics(filename)
-    print(df.head(50))  # n 是您想打印的行数
+    print(df.head(20))  # n 是您想打印的行数
 
     keyword_lists1 = [[" "]]
     
@@ -143,8 +152,49 @@ def main(fname=None):
 
     with open(f'config/flowid_rtt.pkl', 'wb') as file:
         pickle.dump(result, file)
+    
+    return df
 
 if __name__ == "__main__":
-    main()
+    df = main()
+    
+    print("\n")
+    
+    col_names= ["priority", "size", "lat", "RTT", "idealDelta"]
+    for col_name in col_names:
+        unique_values_set = set(df[col_name])
+        print(f"{col_name}的所有取值: {unique_values_set}")
+    
+    print("\n")
+    
+    df = df[df['priority'] == 3]   # Flow only, not Dep
+
+    avg_slowdown = df['slowDown'].mean()
+    max_slowdown = df['slowDown'].max()
+    min_slowdown = df['slowDown'].min()
+    print(f"所有Flow的平均/最大/最小 slowDown: {avg_slowdown}/{max_slowdown}/{min_slowdown}")
+
+    avg_slowdown_dp = df[df['note'].str.contains("DP", na=False)]['slowDown'].mean()
+    max_slowdown_dp = df[df['note'].str.contains("DP", na=False)]['slowDown'].max()
+    min_slowdown_dp = df[df['note'].str.contains("DP", na=False)]['slowDown'].min()
+    print(f"所有DP Flow的平均/最大/最小 slowDown: {avg_slowdown_dp}/{max_slowdown_dp}/{min_slowdown_dp}")
+    
+    # 计算 RTT 小于 5000 的 slowDown 平均值
+    avg_slowdown_rtt_below_5000 = df[df['RTT'] < 5000]['slowDown'].mean()
+    max_slowdown_rtt_below_5000 = df[df['RTT'] < 5000]['slowDown'].max()
+    min_slowdown_rtt_below_5000 = df[df['RTT'] < 5000]['slowDown'].min()
+    print(f"RTT 小于 5000ns (在同一个ToR下) 的平均/最大/最小 slowDown: {avg_slowdown_rtt_below_5000}/{max_slowdown_rtt_below_5000}/{min_slowdown_rtt_below_5000}")
+    
+    # 计算 RTT 在 5000 到 10000 的 slowDown 平均值
+    avg_slowdown_rtt_5000_to_10000 = df[(df['RTT'] >= 5000) & (df['RTT'] <= 10000)]['slowDown'].mean()
+    max_slowdown_rtt_5000_to_10000 = df[(df['RTT'] >= 5000) & (df['RTT'] <= 10000)]['slowDown'].max()
+    min_slowdown_rtt_5000_to_10000 = df[(df['RTT'] >= 5000) & (df['RTT'] <= 10000)]['slowDown'].min()
+    print(f"RTT 在 5000ns 到 10000ns (同DC不同ToR) 的平均/最大/最小 slowDown: {avg_slowdown_rtt_5000_to_10000}/{max_slowdown_rtt_5000_to_10000}/{min_slowdown_rtt_5000_to_10000}")
+
+    # 计算 RTT 大于 10000 的 slowDown 平均值
+    avg_slowdown_rtt_above_10000 = df[df['RTT'] > 10000]['slowDown'].mean()
+    max_slowdown_rtt_above_10000 = df[df['RTT'] > 10000]['slowDown'].max()
+    min_slowdown_rtt_above_10000 = df[df['RTT'] > 10000]['slowDown'].min()
+    print(f"RTT 大于 10000ns (不同DC) 的平均/最大/最小 slowDown: {avg_slowdown_rtt_above_10000}/{max_slowdown_rtt_above_10000}/{min_slowdown_rtt_above_10000}")
 
     # print(contains_all('FlowId=128 priority=3 src=17 dst=30 size=8388608 ', ["priority=3", "1"]))
