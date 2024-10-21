@@ -80,14 +80,14 @@
 49 35 100Gbps 1us 0
 50 35 100Gbps 1us 0
 51 35 100Gbps 1us 0
-0 26 100Gbps 1us 0
-0 26 100Gbps 1us 0
-0 26 100Gbps 1us 0
-0 26 100Gbps 1us 0
-1 27 100Gbps 1us 0
-1 27 100Gbps 1us 0
-1 27 100Gbps 1us 0
-1 27 100Gbps 1us 0
+0 26 100Gbps 2ms 0
+0 26 100Gbps 2ms 0
+0 26 100Gbps 2ms 0
+0 26 100Gbps 2ms 0
+1 27 100Gbps 2ms 0
+1 27 100Gbps 2ms 0
+1 27 100Gbps 2ms 0
+1 27 100Gbps 2ms 0
 
 First line: total node #, switch node #, link #
 Second line: switch node IDs...

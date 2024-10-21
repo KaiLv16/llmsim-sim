@@ -25,6 +25,7 @@ n_server_per_tor="4"
 DCI_SPEED="100Gbps"
 DCN_SPEED="100Gbps"
 TOR_SPEED="100Gbps"
+DCI_LAT="2ms"
 
 host_num=$((tor_switch_num * tor_switch_num))
 
@@ -51,7 +52,7 @@ cecho "YELLOW" "----------------------------------\n"
 # 生成拓扑
 cecho "GREEN" "Generating Topo file..."
 python3 cross_az_topo_gen.py -n ${NUM_AZ} -w ${dci_link_num} -i ${dci_switch_num} -c ${core_switch_num} -t ${tor_switch_num} -s ${n_server_per_tor} \
-                             -B ${DCI_SPEED} -b ${DCN_SPEED} -r ${TOR_SPEED} -L "[(0, 1, '1us')]" -l 1us -o dumbbell -O ${TOPOLOGY}
+                             -B ${DCI_SPEED} -b ${DCN_SPEED} -r ${TOR_SPEED} -L "[(0, 1, '${DCI_LAT}')]" -l 1us -o dumbbell -O ${TOPOLOGY}
 
 # 命令最后加上 &，可以让这个进行在后台运行。
 # running test 
@@ -85,7 +86,9 @@ fi
 # `debug` parameter is useless
 python3 run.py  --flow_file_name ${FLOWFILE_LLM} --flow_relation ${FLOW_RELATION} --node_mapping ${NODE_MAPPING} \
    --cc dcqcn --lb switch_spray --spray 1 --pfc 0 --irn 1 --debug 0 \
-   --simul_time ${RUNTIME} --netload ${NETLOAD} --topo ${TOPOLOGY} \
+   --simul_time ${RUNTIME} --netload ${NETLOAD} --topo ${TOPOLOGY}
+cp mix/output/'dcqcn(1)_switch_spray(12)_pfc0_irn1'/'dcqcn(1)_switch_spray(12)_pfc0_irn1_flow_statistics_output.txt' results/irn_${DCI_LAT}.txt
+
 #    > results/my_test_log.txt
 
 # Lossless RDMA
