@@ -112,6 +112,8 @@ def find_matching_flow_ids(filename, keyword_lists):
                         matching_flow_rtts.append(rtt)
                         matching_flow_notes.append(note)
                         break  # 找到匹配后跳出循环，继续处理下一行
+            else:
+                print(f"last line: \"{line}")
 
     return matching_flow_ids, matching_flow_rtts, matching_flow_notes
 
@@ -128,10 +130,8 @@ def main(fname=None):
     ##############################################################
     #########    you can manually change the filename    #########
     ##############################################################
-    filename = f"results/irn_5ms.txt"
+    filename = f"results/2AZ_IRN_ECN_load_aware/irn_5ms.txt"
 
-    print(f"You manually changed filename to {filename}")
-    
     if fname is not None:
         filename = fname
 
@@ -160,10 +160,10 @@ def main(fname=None):
     with open(f'config/flowid_rtt.pkl', 'wb') as file:
         pickle.dump(result, file)
     
-    return df
+    return df, filename
 
 if __name__ == "__main__":
-    df = main()
+    df, filename = main()
     
     print("\n")
     
@@ -179,29 +179,30 @@ if __name__ == "__main__":
     avg_slowdown = df['slowDown'].mean()
     max_slowdown = df['slowDown'].max()
     min_slowdown = df['slowDown'].min()
-    print(f"所有Flow的平均/最大/最小 slowDown: {avg_slowdown}/{max_slowdown}/{min_slowdown}")
+    print(f"所有Flow的平均/最大/最小 slowDown: {avg_slowdown:.2f}/{max_slowdown:.2f}/{min_slowdown:.2f}")
 
     avg_slowdown_dp = df[df['note'].str.contains("DP", na=False)]['slowDown'].mean()
     max_slowdown_dp = df[df['note'].str.contains("DP", na=False)]['slowDown'].max()
     min_slowdown_dp = df[df['note'].str.contains("DP", na=False)]['slowDown'].min()
-    print(f"所有DP Flow的平均/最大/最小 slowDown: {avg_slowdown_dp}/{max_slowdown_dp}/{min_slowdown_dp}")
+    print(f"所有DP Flow的平均/最大/最小 slowDown: {avg_slowdown_dp:.2f}/{max_slowdown_dp:.2f}/{min_slowdown_dp:.2f}")
     
     # 计算 RTT 小于 5000 的 slowDown 平均值
     avg_slowdown_rtt_below_5000 = df[df['RTT'] < 5000]['slowDown'].mean()
     max_slowdown_rtt_below_5000 = df[df['RTT'] < 5000]['slowDown'].max()
     min_slowdown_rtt_below_5000 = df[df['RTT'] < 5000]['slowDown'].min()
-    print(f"RTT 小于 5000ns (在同一个ToR下) 的平均/最大/最小 slowDown: {avg_slowdown_rtt_below_5000}/{max_slowdown_rtt_below_5000}/{min_slowdown_rtt_below_5000}")
+    print(f"RTT 小于 5000ns (在同一个ToR下) 的平均/最大/最小 slowDown: {avg_slowdown_rtt_below_5000:.2f}/{max_slowdown_rtt_below_5000:.2f}/{min_slowdown_rtt_below_5000:.2f}")
     
     # 计算 RTT 在 5000 到 10000 的 slowDown 平均值
     avg_slowdown_rtt_5000_to_10000 = df[(df['RTT'] >= 5000) & (df['RTT'] <= 10000)]['slowDown'].mean()
     max_slowdown_rtt_5000_to_10000 = df[(df['RTT'] >= 5000) & (df['RTT'] <= 10000)]['slowDown'].max()
     min_slowdown_rtt_5000_to_10000 = df[(df['RTT'] >= 5000) & (df['RTT'] <= 10000)]['slowDown'].min()
-    print(f"RTT 在 5000ns 到 10000ns (同DC不同ToR) 的平均/最大/最小 slowDown: {avg_slowdown_rtt_5000_to_10000}/{max_slowdown_rtt_5000_to_10000}/{min_slowdown_rtt_5000_to_10000}")
+    print(f"RTT 在 5000ns 到 10000ns (同DC不同ToR) 的平均/最大/最小 slowDown: {avg_slowdown_rtt_5000_to_10000:.2f}/{max_slowdown_rtt_5000_to_10000:.2f}/{min_slowdown_rtt_5000_to_10000:.2f}")
 
     # 计算 RTT 大于 10000 的 slowDown 平均值
     avg_slowdown_rtt_above_10000 = df[df['RTT'] > 10000]['slowDown'].mean()
     max_slowdown_rtt_above_10000 = df[df['RTT'] > 10000]['slowDown'].max()
     min_slowdown_rtt_above_10000 = df[df['RTT'] > 10000]['slowDown'].min()
-    print(f"RTT 大于 10000ns (不同DC) 的平均/最大/最小 slowDown: {avg_slowdown_rtt_above_10000}/{max_slowdown_rtt_above_10000}/{min_slowdown_rtt_above_10000}")
+    print(f"RTT 大于 10000ns (不同DC) 的平均/最大/最小 slowDown: {avg_slowdown_rtt_above_10000:.2f}/{max_slowdown_rtt_above_10000:.2f}/{min_slowdown_rtt_above_10000:.2f}")
 
     # print(contains_all('FlowId=128 priority=3 src=17 dst=30 size=8388608 ', ["priority=3", "1"]))
+    print(f"You used filename: {filename}")

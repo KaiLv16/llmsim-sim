@@ -9,6 +9,9 @@
 
 #include "qbb-net-device.h"
 #include "switch-mmu.h"
+#include <ns3/qbb-header.h>
+#include "ns3/cn-header.h"
+#include "ns3/custom-header.h"
 
 namespace ns3 {
 
@@ -25,6 +28,7 @@ class SwitchNode : public Node {
     uint64_t m_txBytes[pCnt];  // counter of tx bytes, for HPCC
 
    protected:
+   bool m_fastCnpEnabled;
     bool m_ecnEnabled;
     bool m_qlenAwareEgress;
     uint32_t m_ccMode;
@@ -80,6 +84,10 @@ class SwitchNode : public Node {
     void ClearTable();
     bool SwitchReceiveFromDevice(Ptr<NetDevice> device, Ptr<Packet> packet, CustomHeader &ch);
     void SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Packet> p);
+    
+    uint16_t EtherToPpp(uint16_t proto);
+    void SwitchGenerateAndSendFastCnp(Ptr<Packet> p);
+
     uint64_t GetTxBytesOutDev(uint32_t outdev);
 };
 

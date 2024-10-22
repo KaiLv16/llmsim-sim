@@ -25,7 +25,7 @@ n_server_per_tor="4"
 DCI_SPEED="100Gbps"
 DCN_SPEED="100Gbps"
 TOR_SPEED="100Gbps"
-DCI_LAT="5ms"
+DCI_LAT="500us"
 
 host_num=$((tor_switch_num * tor_switch_num))
 
@@ -86,9 +86,9 @@ fi
 # `debug` parameter is useless
 python3 run.py  --flow_file_name ${FLOWFILE_LLM} --flow_relation ${FLOW_RELATION} --node_mapping ${NODE_MAPPING} \
    --cc dcqcn --lb switch_spray --spray 1 --pfc 0 --irn 1 --debug 0 \
-   --simul_time ${RUNTIME} --netload ${NETLOAD} --topo ${TOPOLOGY}
-cp mix/output/'dcqcn(1)_switch_spray(12)_pfc0_irn1'/'dcqcn(1)_switch_spray(12)_pfc0_irn1_flow_statistics_output.txt' results/irn_${DCI_LAT}.txt
-
+   --simul_time ${RUNTIME} --netload ${NETLOAD} --topo ${TOPOLOGY} --lat ${DCI_LAT}
+cp mix/output/'dcqcn(1)_switch_spray(12)_pfc0_irn1'/'dcqcn(1)_switch_spray(12)_pfc0_irn1_flow_statistics_output.txt' results/2AZ_IRN_ECN_load_aware_fastCNP/irn_${DCI_LAT}.txt
+cp mix/output/'dcqcn(1)_switch_spray(12)_pfc0_irn1'/config.txt results/2AZ_IRN_ECN_load_aware_fastCNP/irn_${DCI_LAT}_config.txt
 #    > results/my_test_log.txt
 
 # Lossless RDMA

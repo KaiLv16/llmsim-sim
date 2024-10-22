@@ -50,6 +50,8 @@ FLOWGEN_START_TIME {flowgen_start_time}              new
 FLOWGEN_STOP_TIME {flowgen_stop_time}                new
 BUFFER_SIZE {buffer_size}                            ~
 
+AZ_LAT {az_lat}     ~
+
 CC_MODE {cc_mode}               ~
 LB_MODE {lb_mode}               new
 ENABLE_PFC {enabled_pfc}        new
@@ -84,7 +86,7 @@ VAR_WIN {var_win}               is_0_in_dcqcn_and_timely
 GLOBAL_T {use_global_win}       是否使用全局统一的窗口大小（maxBDP）
 
 ENABLE_PLB {enable_plb}         ~
-ENABLE_QLEN_AWARE_EG {qlen_aware_egress} ~
+ENABLE_QLEN_AWARE_EG {qlen_aware_egress}  是否使用队列长度aware的出端口选择
 
 FAST_REACT {fast_react}         is_1_in_hpcc_algo,_else=0
 MI_THRESH {mi}                  ~
@@ -95,6 +97,7 @@ MULTI_RATE 0                    ~
 SAMPLE_FEEDBACK 0               ~
 
 ENABLE_QCN 1                    ~
+ENABLE_FAST_CNP {enable_fast_cnp}     ~
 USE_DYNAMIC_PFC_THRESHOLD 1     ~
 PACKET_PAYLOAD_SIZE 1000        ~
 
@@ -165,6 +168,8 @@ def main():
                         default='9', help="the switch buffer size (MB) (default: 9)")
     parser.add_argument('--netload', dest='netload', action='store', type=int,
                         default=40, help="Network load at NIC to generate traffic (default: 40.0)")
+    parser.add_argument('--lat', dest="lat", action='store',
+                        default='1ms', help="the cross az lat (default: 1ms)")
     parser.add_argument('--bw', dest="bw", action='store',
                         default='100', help="the NIC bandwidth (Gbps) (default: 100)")
     parser.add_argument('--topo', dest='topo', action='store',
@@ -405,7 +410,12 @@ def main():
         has_win = 1
         var_win = 1
         use_global_max_win = 0
-        # qlen_aware_egress = 1
+        qlen_aware_egress = 1       # 使能这一项，以支持 load-aware packet spray
+
+    enable_fast_cnp = 0
+    if (cc_mode == 1):
+        enable_fast_cnp = 0
+
 
     # record to history
     simulday = datetime.now().strftime("%m/%d/%y")
@@ -461,7 +471,8 @@ def main():
             ewma_gain = 0.00390625
 
             hprio = args.high_prio
-            
+            enable_fast_cnp = 1
+
             config = config_template.format(id=config_ID, topo=topo, flow=flow, flow_relation=flow_relation, node_mapping=node_mapping, simnode_mapping_file=simnode_mapping_file,
                                             spray_test=spray_test,
                                             qlen_mon_start=qlen_mon_start, qlen_mon_end=qlen_mon_end, flowgen_start_time=flowgen_start_time,
@@ -469,8 +480,8 @@ def main():
                                             load=netload, buffer_size=buffer, lb_mode=lb_mode, cwh_tx_expiry_time=cwh_tx_expiry_time,
                                             cwh_extra_reply_deadline=cwh_extra_reply_deadline, cwh_default_voq_waiting_time=cwh_default_voq_waiting_time,
                                             cwh_path_pause_time=cwh_path_pause_time, cwh_extra_voq_flush_time=cwh_extra_voq_flush_time,
-                                            enabled_pfc=enabled_pfc, enabled_irn=enabled_irn,
-                                            cc_mode=cc_mode,
+                                            enabled_pfc=enabled_pfc, enabled_irn=enabled_irn, enable_fast_cnp=enable_fast_cnp,
+                                            az_lat=args.lat, cc_mode=cc_mode,
                                             ai=ai, hai=hai, dctcp_ai=dctcp_ai,
                                             rate_bound=rate_bound, has_win=has_win, var_win=var_win, use_global_win=use_global_max_win,
                                             enable_plb=enable_plb, qlen_aware_egress=qlen_aware_egress, 
@@ -515,8 +526,8 @@ def main():
                                             load=netload, buffer_size=buffer, lb_mode=lb_mode, cwh_tx_expiry_time=cwh_tx_expiry_time,
                                             cwh_extra_reply_deadline=cwh_extra_reply_deadline, cwh_default_voq_waiting_time=cwh_default_voq_waiting_time,
                                             cwh_path_pause_time=cwh_path_pause_time, cwh_extra_voq_flush_time=cwh_extra_voq_flush_time,
-                                            enabled_pfc=enabled_pfc, enabled_irn=enabled_irn,
-                                            cc_mode=cc_mode,
+                                            enabled_pfc=enabled_pfc, enabled_irn=enabled_irn, enable_fast_cnp=enable_fast_cnp,
+                                            az_lat=args.lat, cc_mode=cc_mode,
                                             ai=ai, hai=hai, dctcp_ai=dctcp_ai,
                                             rate_bound=rate_bound, has_win=has_win, var_win=var_win, use_global_win=use_global_max_win,
                                             enable_plb=enable_plb, qlen_aware_egress=qlen_aware_egress, 
@@ -551,8 +562,8 @@ def main():
                                             load=netload, buffer_size=buffer, lb_mode=lb_mode, cwh_tx_expiry_time=cwh_tx_expiry_time,
                                             cwh_extra_reply_deadline=cwh_extra_reply_deadline, cwh_default_voq_waiting_time=cwh_default_voq_waiting_time,
                                             cwh_path_pause_time=cwh_path_pause_time, cwh_extra_voq_flush_time=cwh_extra_voq_flush_time,
-                                            enabled_pfc=enabled_pfc, enabled_irn=enabled_irn,
-                                            cc_mode=cc_mode,
+                                            enabled_pfc=enabled_pfc, enabled_irn=enabled_irn, enable_fast_cnp=enable_fast_cnp,
+                                            az_lat=args.lat, cc_mode=cc_mode,
                                             ai=ai, hai=hai, dctcp_ai=dctcp_ai,
                                             rate_bound=rate_bound, has_win=has_win, var_win=var_win, use_global_win=use_global_max_win,
                                             enable_plb=enable_plb, qlen_aware_egress=qlen_aware_egress, 
@@ -580,8 +591,8 @@ def main():
                                             load=netload, buffer_size=buffer, lb_mode=lb_mode, cwh_tx_expiry_time=cwh_tx_expiry_time,
                                             cwh_extra_reply_deadline=cwh_extra_reply_deadline, cwh_default_voq_waiting_time=cwh_default_voq_waiting_time,
                                             cwh_path_pause_time=cwh_path_pause_time, cwh_extra_voq_flush_time=cwh_extra_voq_flush_time,
-                                            enabled_pfc=enabled_pfc, enabled_irn=enabled_irn,
-                                            cc_mode=cc_mode,
+                                            enabled_pfc=enabled_pfc, enabled_irn=enabled_irn, enable_fast_cnp=enable_fast_cnp,
+                                            az_lat=args.lat, cc_mode=cc_mode,
                                             ai=ai, hai=hai, dctcp_ai=dctcp_ai,
                                             rate_bound=rate_bound, has_win=has_win, var_win=var_win, use_global_win=use_global_max_win,
                                             enable_plb=enable_plb, qlen_aware_egress=qlen_aware_egress, 
@@ -604,8 +615,8 @@ def main():
                                             load=netload, buffer_size=buffer, lb_mode=lb_mode, cwh_tx_expiry_time=cwh_tx_expiry_time,
                                             cwh_extra_reply_deadline=cwh_extra_reply_deadline, cwh_default_voq_waiting_time=cwh_default_voq_waiting_time,
                                             cwh_path_pause_time=cwh_path_pause_time, cwh_extra_voq_flush_time=cwh_extra_voq_flush_time,
-                                            enabled_pfc=enabled_pfc, enabled_irn=enabled_irn,
-                                            cc_mode=cc_mode,
+                                            enabled_pfc=enabled_pfc, enabled_irn=enabled_irn, enable_fast_cnp=enable_fast_cnp,
+                                            az_lat=args.lat, cc_mode=cc_mode,
                                             ai=ai, hai=hai, dctcp_ai=dctcp_ai,
                                             rate_bound=rate_bound, has_win=has_win, var_win=var_win, use_global_win=use_global_max_win,
                                             enable_plb=enable_plb, qlen_aware_egress=qlen_aware_egress, 
@@ -628,8 +639,8 @@ def main():
                                             load=netload, buffer_size=buffer, lb_mode=lb_mode, cwh_tx_expiry_time=cwh_tx_expiry_time,
                                             cwh_extra_reply_deadline=cwh_extra_reply_deadline, cwh_default_voq_waiting_time=cwh_default_voq_waiting_time,
                                             cwh_path_pause_time=cwh_path_pause_time, cwh_extra_voq_flush_time=cwh_extra_voq_flush_time,
-                                            enabled_pfc=enabled_pfc, enabled_irn=enabled_irn,
-                                            cc_mode=cc_mode,
+                                            enabled_pfc=enabled_pfc, enabled_irn=enabled_irn, enable_fast_cnp=enable_fast_cnp,
+                                            az_lat=args.lat, cc_mode=cc_mode,
                                             ai=ai, hai=hai, dctcp_ai=dctcp_ai,
                                             rate_bound=rate_bound, has_win=has_win, var_win=var_win, use_global_win=use_global_max_win,
                                             enable_plb=enable_plb, qlen_aware_egress=qlen_aware_egress, 

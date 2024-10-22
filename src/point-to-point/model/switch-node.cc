@@ -25,6 +25,8 @@ TypeId SwitchNode::GetTypeId(void) {
             .AddConstructor<SwitchNode>()
             .AddAttribute("EcnEnabled", "Enable ECN marking.", BooleanValue(false),
                           MakeBooleanAccessor(&SwitchNode::m_ecnEnabled), MakeBooleanChecker())
+            .AddAttribute("FastCnpEnabled", "Enable Fast Cnp.", BooleanValue(false),
+                          MakeBooleanAccessor(&SwitchNode::m_fastCnpEnabled), MakeBooleanChecker())
             .AddAttribute("QlenAwareEgressSelection", "QlenAwareEgressSelection.", BooleanValue(false),
                           MakeBooleanAccessor(&SwitchNode::m_qlenAwareEgress), MakeBooleanChecker())
             .AddAttribute("CcMode", "CC mode.", UintegerValue(0),
@@ -75,7 +77,7 @@ uint32_t SwitchNode::DoLbFlowECMP(Ptr<const Packet> p, const CustomHeader &ch,
         buf.u32[2] = ch.tcp.sport | ((uint32_t)ch.tcp.dport << 16);
     else if (ch.l3Prot == 0x11)  // XXX RDMA traffic on UDP
         buf.u32[2] = ch.udp.sport | ((uint32_t)ch.udp.dport << 16);
-    else if (ch.l3Prot == 0xFC || ch.l3Prot == 0xFD)  // ACK or NACK
+    else if (ch.l3Prot == 0xFC || ch.l3Prot == 0xFD|| ch.l3Prot == 0xF8)  // ACK or NACK or fastCNP
         buf.u32[2] = ch.ack.sport | ((uint32_t)ch.ack.dport << 16);
     else {
         std::cout << "[ERROR] Sw(" << m_id << ")," << PARSE_FIVE_TUPLE(ch)
@@ -244,6 +246,12 @@ void SwitchNode::CheckAndSendResume(uint32_t inDev, uint32_t qIndex) {
 // This function can only be called in switch mode
 bool SwitchNode::SwitchReceiveFromDevice(Ptr<NetDevice> device, Ptr<Packet> packet,
                                          CustomHeader &ch) {
+    if (ch.l3Prot == 0xF8) {
+        FlowIdTag t;
+        packet->PeekPacketTag(t);
+        uint32_t inDev = t.GetFlowId();
+        std::cout << Simulator::Now() << "Switch " << GetId() << " port " << inDev << " Gets a FASTCNP" << std::endl;
+    }
     SendToDev(packet, ch);
     return true;
 }
@@ -281,7 +289,8 @@ void SwitchNode::SendToDevContinue(Ptr<Packet> p, CustomHeader &ch) {
         if (ch.l3Prot == 0xFF || ch.l3Prot == 0xFE ||
             (m_ackHighPrio &&
              (ch.l3Prot == 0xFD ||
-              ch.l3Prot == 0xFC))) {  // QCN or PFC or ACK/NACK, go highest priority
+              ch.l3Prot == 0xFC ||
+              ch.l3Prot == 0xF8))) {  // QCN or PFC or ACK/NACK or fastCNP, go highest priority
             qIndex = 0;               // high priority
         } else {
             qIndex = (ch.l3Prot == 0x06 ? 1 : ch.udp.pg);  // if TCP, put to queue 1. Otherwise, it
@@ -312,7 +321,7 @@ int SwitchNode::GetOutDev(Ptr<Packet> p, CustomHeader &ch) {
     // entry found
     const auto &nexthops = entry->second;
     bool control_pkt =
-        (ch.l3Prot == 0xFF || ch.l3Prot == 0xFE || ch.l3Prot == 0xFD || ch.l3Prot == 0xFC);
+        (ch.l3Prot == 0xFF || ch.l3Prot == 0xFE || ch.l3Prot == 0xFD || ch.l3Prot == 0xFC || ch.l3Prot == 0xF8);
 
     if (Settings::lb_mode == 0 || control_pkt) {  // control packet (ACK, NACK, PFC, QCN)
         return DoLbFlowECMP(p, ch, nexthops);     // ECMP routing path decision (4-tuple)
@@ -394,6 +403,65 @@ void SwitchNode::DoSwitchSend(Ptr<Packet> p, CustomHeader &ch, uint32_t outDev, 
     m_devices[outDev]->SwitchSend(qIndex, p, ch);
 }
 
+uint16_t SwitchNode::EtherToPpp(uint16_t proto) {
+    switch (proto) {
+        case 0x0800:
+            return 0x0021;  // IPv4
+        case 0x86DD:
+            return 0x0057;  // IPv6
+        default:
+            NS_ASSERT_MSG(false, "PPP Protocol number not defined!");
+    }
+    return 0;
+}
+
+// 只修改 rate ，不涉及window
+void SwitchNode::SwitchGenerateAndSendFastCnp(Ptr<Packet> p) {
+    CustomHeader ch(CustomHeader::L2_Header | CustomHeader::L3_Header | CustomHeader::L4_Header);
+    ch.getInt = 1;  // parse INT header
+    p->PeekHeader(ch);
+    
+    qbbHeader seqh;
+    seqh.SetSeq(-1);
+    seqh.SetPG(ch.udp.pg);
+    seqh.SetFlowId(ch.udp.flow_id);
+    seqh.SetSport(ch.udp.dport);
+    seqh.SetDport(ch.udp.sport);
+    seqh.SetIntHeader(ch.udp.ih);
+
+    seqh.SetCnp();
+
+    Ptr<Packet> newp = Create<Packet>(std::max(60 - 14 - 20 - (int)seqh.GetSerializedSize(), 0));
+    newp->AddHeader(seqh);
+
+    Ipv4Header head;  // Prepare IPv4 header
+    head.SetDestination(Ipv4Address(ch.sip));
+    head.SetSource(Ipv4Address(ch.dip));
+
+    head.SetProtocol(0xF8);  // fastCNP 的 ack=0xF8
+
+    head.SetTtl(64);
+    head.SetPayloadSize(newp->GetSize());
+    
+    newp->AddHeader(head);
+
+    PppHeader ppp;
+    ppp.SetProtocol(EtherToPpp(0x800));
+    newp->AddHeader(ppp);
+
+    // find Ingress port
+    FlowIdTag t;
+    p->PeekPacketTag(t);
+    uint32_t inDev = t.GetFlowId();
+
+    // send reversely
+    Ptr<QbbNetDevice> device = DynamicCast<QbbNetDevice>(m_devices[inDev]);
+    device->SwitchSend(0, newp, ch);
+    std::cout << Simulator::Now() << "Switch " << GetId() << " port " << inDev << " generates a FASTCNP" << std::endl;
+
+}
+
+// 在 Egress 处被调用
 void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Packet> p) {
     FlowIdTag t;
     p->PeekPacketTag(t);
@@ -408,13 +476,20 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
         if (m_ecnEnabled) {
             bool egressCongested = m_mmu->ShouldSendCN(ifIndex, qIndex);
             if (egressCongested) {
-                PppHeader ppp;
-                Ipv4Header h;
-                p->RemoveHeader(ppp);
-                p->RemoveHeader(h);
-                h.SetEcn((Ipv4Header::EcnType)0x03);
-                p->AddHeader(h);
-                p->AddHeader(ppp);
+                // printf("ECN=1~\n");
+                if (m_fastCnpEnabled){          // fast CNP
+                    // printf("fastCNP~\n");
+                    SwitchGenerateAndSendFastCnp(p);
+                }
+                else {
+                    PppHeader ppp;
+                    Ipv4Header h;
+                    p->RemoveHeader(ppp);
+                    p->RemoveHeader(h);
+                    h.SetEcn((Ipv4Header::EcnType)0x03);
+                    p->AddHeader(h);
+                    p->AddHeader(ppp);
+                }
             }
         }
         // NOTE: ConWeave's probe/reply does not need to pass inDev interface

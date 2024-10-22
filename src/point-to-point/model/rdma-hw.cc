@@ -425,6 +425,7 @@ int RdmaHw::ReceiveCnp(Ptr<Packet> p, CustomHeader &ch) {
     uint32_t i;
     // get qp
     uint64_t key = GetQpKey(ch.sip, udpport, sport, qIndex);
+    printf("");
     Ptr<RdmaQueuePair> qp = GetQp(key);
     if (qp == NULL) {
         // lookup akashic memory
@@ -454,6 +455,39 @@ int RdmaHw::ReceiveCnp(Ptr<Packet> p, CustomHeader &ch) {
             }
         } else if (m_cc_mode == 7) {
             qp->tmly.m_curRate = dev->GetDataRate();
+        }
+    }
+    return 0;
+}
+
+int RdmaHw::ReceiveFastCnp(Ptr<Packet> p, CustomHeader &ch) {
+    std::cerr << "Node " << m_node->GetId() << " call ReceiveFastCnp()." << std::endl;
+    uint16_t qIndex = ch.ack.pg;
+    uint16_t port = ch.ack.dport;   // sport for this host
+    uint16_t sport = ch.ack.sport;  // dport for this host (sport of ACK packet)
+    uint32_t seq = ch.ack.seq;
+    uint8_t cnp = (ch.ack.flags >> qbbHeader::FLAG_CNP) & 1;
+    int i;
+    uint64_t key = GetQpKey(ch.sip, port, sport, qIndex);
+    Ptr<RdmaQueuePair> qp = GetQp(key);
+    if (qp == NULL) {
+        // lookup akashic memory
+        if (akashic_Qp.find(key) != akashic_Qp.end()) {
+            return 1;
+        } else {
+            printf("ERROR: Node: %u %s - NIC cannot find the flow\n", m_node->GetId(), (ch.l3Prot == 0xF8 ? "CNP" : "UNKNOWN"));
+            exit(1);
+        }
+    }
+
+    // handle cnp
+    if (cnp) {
+        if (m_cc_mode == 1) {  // mlx version
+            cnp_received_mlx(qp);
+        }
+        else {
+            printf("Currently, FastCNP only supports DCQCN.\n");
+            exit(1);
         }
     }
     return 0;
@@ -579,7 +613,7 @@ int RdmaHw::ReceiveAck(Ptr<Packet> p, CustomHeader &ch) {
     // handle cnp
     if (cnp) {
         if (m_cc_mode == 1) {  // mlx version
-            printf("m_cc_mode = %d", m_cc_mode);
+            // printf("m_cc_mode = %d", m_cc_mode);
             cnp_received_mlx(qp);
         }
     }
@@ -613,6 +647,8 @@ int RdmaHw::Receive(Ptr<Packet> p, CustomHeader &ch) {
         return ReceiveUdp(p, ch);
     } else if (ch.l3Prot == 0xFF) {  // CNP
         return ReceiveCnp(p, ch);
+    }else if (ch.l3Prot == 0xF8) {  // Fast CNP
+        return ReceiveFastCnp(p, ch);
     } else if (ch.l3Prot == 0xFD) {  // NACK
         return ReceiveAck(p, ch);
     } else if (ch.l3Prot == 0xFC) {  // ACK

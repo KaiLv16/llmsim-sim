@@ -90,7 +90,7 @@ bool conweave_pathAwareRerouting = true;
 /*------------------------ simulation variables -----------------------------*/
 uint64_t one_hop_delay = 1000;  // nanoseconds
 uint32_t cc_mode = 1;           // mode for congestion control, 1: DCQCN
-bool enable_qcn = true, enable_pfc = true, use_dynamic_pfc_threshold = true;
+bool enable_qcn = true, enable_fast_cnp = false, enable_pfc = true, use_dynamic_pfc_threshold = true;
 uint32_t packet_payload_size = 1000, l2_chunk_size = 0, l2_ack_interval = 0;
 double pause_time = 5;  // PFC pause, microseconds
 double flowgen_start_time = 2.0, flowgen_stop_time = 2.5, simulator_extra_time = 0.1;
@@ -1105,6 +1105,8 @@ inline const char* getPriorityString(int pkt_type) {
             return "ACK";
         case 4:
             return "PFC";
+        case 5:
+            return "fastCNP";
         default:
             return "Undefined";
     }
@@ -1525,7 +1527,20 @@ int main(int argc, char *argv[]) {
                     std::cerr << "ENABLE_QCN\t\t\t"
                               << "No"
                               << "\n";
-            } else if (key.compare("USE_DYNAMIC_PFC_THRESHOLD") == 0) {
+            } else if (key.compare("ENABLE_FAST_CNP") == 0) {
+                uint32_t v;
+                conf >> v;
+                enable_fast_cnp = v;
+                if (enable_fast_cnp)
+                    std::cerr << "ENABLE_FAST_CNP\t\t\t"
+                              << "Yes"
+                              << "\n";
+                else
+                    std::cerr << "ENABLE_FAST_CNP\t\t\t"
+                              << "No"
+                              << "\n";
+            }
+             else if (key.compare("USE_DYNAMIC_PFC_THRESHOLD") == 0) {
                 uint32_t v;
                 conf >> v;
                 use_dynamic_pfc_threshold = v;
@@ -1910,6 +1925,7 @@ int main(int argc, char *argv[]) {
             Ptr<SwitchNode> sw = CreateObject<SwitchNode>();
             n.Add(sw);
             sw->SetAttribute("EcnEnabled", BooleanValue(enable_qcn));
+            sw->SetAttribute("FastCnpEnabled", BooleanValue(enable_fast_cnp));
             sw->SetAttribute("QlenAwareEgressSelection", BooleanValue(bool(qlen_aware_egress)));
         }
     }

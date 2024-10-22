@@ -125,7 +125,7 @@ python3 plot_flow_rate.py --type send --configID 'dcqcn(1)_switch_spray(12)_pfc0
 
 在使用vscode开发时，可以把以下字段添加到全局搜索栏：
 ```
-config/, src/applications, src/point-to-point/, scratch/, autorun.sh, run.py, plot_flow_rate.py,
+config/, src/applications, src/point-to-point/, scratch/, autorun.sh, run.py, plot_flow_rate.py, src/network/utils
 ```
 
 ## [Credit to] 

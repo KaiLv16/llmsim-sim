@@ -308,6 +308,7 @@ void QbbHelper::GetTraceFromPacket(TraceFormat &tr, Ptr<QbbNetDevice> dev, Ptr<c
             break;
         case 0xFC:
         case 0xFD:
+        case 0xF8:
             tr.ack.sport = hdr.ack.sport;
             tr.ack.dport = hdr.ack.dport;
             tr.ack.flags = hdr.ack.flags;

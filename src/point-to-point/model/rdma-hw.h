@@ -79,6 +79,7 @@ class RdmaHw : public Object {
 
     int ReceiveUdp(Ptr<Packet> p, CustomHeader &ch);
     int ReceiveCnp(Ptr<Packet> p, CustomHeader &ch);
+    int ReceiveFastCnp(Ptr<Packet> p, CustomHeader &ch);
     int ReceiveAck(Ptr<Packet> p, CustomHeader &ch);  // handle both ACK and NACK
     int Receive(Ptr<Packet> p,
                 CustomHeader &

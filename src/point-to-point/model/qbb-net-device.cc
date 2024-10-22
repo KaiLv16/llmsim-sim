@@ -250,6 +250,8 @@ inline int get_pkt_status(uint32_t l3Prot){
         pkt_type = 3;
     } else if (l3Prot == 0xFE) {  // PFC
         pkt_type = 4;
+    } else if (l3Prot == 0xF8) {  // fastACK
+        pkt_type = 5;
     }
     return pkt_type;
 }
@@ -447,6 +449,7 @@ bool QbbNetDevice::Send(Ptr<Packet> packet, const Address &dest, uint16_t protoc
     return false;
 }
 
+// TODO： 添加trace fast CNP的代码
 bool QbbNetDevice::SwitchSend(uint32_t qIndex, Ptr<Packet> packet, CustomHeader &ch) {
     m_macTxTrace(packet);
     m_traceEnqueue(packet, qIndex);
