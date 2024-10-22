@@ -125,7 +125,11 @@ def main(fname=None):
 
     filename = f"mix/output/{config_id}/{config_id}_flow_statistics_output.txt"
 
-    filename = f"results/irn_2ms.txt"
+    ##############################################################
+    #########    you can manually change the filename    #########
+    ##############################################################
+    filename = f"results/irn_5ms.txt"
+
     print(f"You manually changed filename to {filename}")
     
     if fname is not None:

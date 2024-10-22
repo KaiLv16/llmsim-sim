@@ -401,7 +401,7 @@ def main():
             print("### INFO: Enforced to use window scheme! ###")
 
     if (enabled_irn == 1 and 'spray' in args.lb and 'switch' in args.lb):  # 对于irn + packet_spray，使用可变窗口、逐QP窗口。
-        rate_bound = 0
+        rate_bound = 1      # 如果这一项为1，那么即使是在IRN下也会使能CNP调速
         has_win = 1
         var_win = 1
         use_global_max_win = 0

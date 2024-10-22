@@ -25,7 +25,7 @@ n_server_per_tor="4"
 DCI_SPEED="100Gbps"
 DCN_SPEED="100Gbps"
 TOR_SPEED="100Gbps"
-DCI_LAT="2ms"
+DCI_LAT="5ms"
 
 host_num=$((tor_switch_num * tor_switch_num))
 

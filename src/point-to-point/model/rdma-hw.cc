@@ -579,6 +579,7 @@ int RdmaHw::ReceiveAck(Ptr<Packet> p, CustomHeader &ch) {
     // handle cnp
     if (cnp) {
         if (m_cc_mode == 1) {  // mlx version
+            printf("m_cc_mode = %d", m_cc_mode);
             cnp_received_mlx(qp);
         }
     }
@@ -685,7 +686,7 @@ int RdmaHw::ReceiverCheckSeq(uint32_t seq, Ptr<RdmaRxQueuePair> q, uint32_t size
             q->m_nackTimer = Simulator::Now() + MicroSeconds(m_nack_interval);
             q->m_irn_sack_.sack(seq, size);  // set SACK
             NS_ASSERT(q->m_irn_sack_.discardUpTo(expected) == 0);  // SACK blocks must be larger than expected
-            cnp = false;    // XXX: out-of-order should accompany with CNP (?) TODO: Check on CX6
+            cnp = true;    // XXX: out-of-order should accompany with CNP (?) TODO: Check on CX6
             return 2;      // generate SACK
         }
         if (Simulator::Now() >= q->m_nackTimer || q->m_lastNACK != expected) {  // new NACK
@@ -948,6 +949,7 @@ void RdmaHw::HandleTimeout(Ptr<RdmaQueuePair> qp, Time rto) {
     dev->TriggerTransmit();
 }
 
+// 根据m_rate做下一个数据包的调度
 void RdmaHw::UpdateNextAvail(Ptr<RdmaQueuePair> qp, Time interframeGap, uint32_t pkt_size) {
     Time sendingTime;
     if (m_rateBound)
