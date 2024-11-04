@@ -414,7 +414,7 @@ def main():
 
     enable_fast_cnp = 0
     if (cc_mode == 1):
-        enable_fast_cnp = 0
+        enable_fast_cnp = 1
 
 
     # record to history

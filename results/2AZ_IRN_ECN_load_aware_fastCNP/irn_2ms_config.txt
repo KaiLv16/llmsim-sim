@@ -1,0 +1,86 @@
+TOPOLOGY_FILE config/topo_dumbbell_4dcilink_2dci_4core_4tor_16host_100Gbps_100Gbps_100Gbps.txt  ~
+FLOW_FILE config/../../ResNet50-MNIST-pytorch/mix/llm_flow.txt                           ~
+FLOW_RELATIONAL 1                       newly_add
+NODE_MAPPING config/../../ResNet50-MNIST-pytorch/mix/node_mapping.txt                newly_add
+SIM_NODE_MAPPING_FILE config/layer_Id_to_nic_Id.txt   newly_add
+IS_SPRAY 1                                   newly_add
+
+FLOW_INPUT_FILE mix/output/dcqcn(1)_switch_spray(12)_pfc0_irn1/dcqcn(1)_switch_spray(12)_pfc0_irn1_in.txt           new
+FLOW_STATISTICS_OUTPUT_FILE mix/output/dcqcn(1)_switch_spray(12)_pfc0_irn1/dcqcn(1)_switch_spray(12)_pfc0_irn1_flow_statistics_output.txt           new
+CNP_OUTPUT_FILE mix/output/dcqcn(1)_switch_spray(12)_pfc0_irn1/dcqcn(1)_switch_spray(12)_pfc0_irn1_out_cnp.txt      new
+FCT_OUTPUT_FILE mix/output/dcqcn(1)_switch_spray(12)_pfc0_irn1/dcqcn(1)_switch_spray(12)_pfc0_irn1_out_fct.txt      ~
+PFC_OUTPUT_FILE mix/output/dcqcn(1)_switch_spray(12)_pfc0_irn1/dcqcn(1)_switch_spray(12)_pfc0_irn1_out_pfc.txt      ~
+QLEN_MON_FILE mix/output/dcqcn(1)_switch_spray(12)_pfc0_irn1/dcqcn(1)_switch_spray(12)_pfc0_irn1_out_qlen.txt       ~
+VOQ_MON_FILE mix/output/dcqcn(1)_switch_spray(12)_pfc0_irn1/dcqcn(1)_switch_spray(12)_pfc0_irn1_out_voq.txt         new
+VOQ_MON_DETAIL_FILE mix/output/dcqcn(1)_switch_spray(12)_pfc0_irn1/dcqcn(1)_switch_spray(12)_pfc0_irn1_out_voq_per_dst.txt    new
+UPLINK_MON_FILE mix/output/dcqcn(1)_switch_spray(12)_pfc0_irn1/dcqcn(1)_switch_spray(12)_pfc0_irn1_out_uplink.txt             new
+CONN_MON_FILE mix/output/dcqcn(1)_switch_spray(12)_pfc0_irn1/dcqcn(1)_switch_spray(12)_pfc0_irn1_out_conn.txt                 new
+EST_ERROR_MON_FILE mix/output/dcqcn(1)_switch_spray(12)_pfc0_irn1/dcqcn(1)_switch_spray(12)_pfc0_irn1_out_est_error.txt       new
+SND_RCV_OUTPUT_FILE mix/output/dcqcn(1)_switch_spray(12)_pfc0_irn1/dcqcn(1)_switch_spray(12)_pfc0_irn1_snd_rcv_record_file.txt       newly_added
+ROUTING_TABLE_OUTPUT_FILE mix/output/dcqcn(1)_switch_spray(12)_pfc0_irn1/dcqcn(1)_switch_spray(12)_pfc0_irn1_routing_table_record.txt newly_added
+QLEN_MON_START 2.0    ~
+QLEN_MON_END 102.0        ~
+SW_MONITORING_INTERVAL 10000      new
+
+FLOWGEN_START_TIME 2.0              new
+FLOWGEN_STOP_TIME 102.0                new
+BUFFER_SIZE 9                            ~
+
+AZ_LAT 2ms     ~
+
+CC_MODE 1               ~
+LB_MODE 12               new
+ENABLE_PFC 0        new
+ENABLE_IRN 1        new
+
+CONWEAVE_TX_EXPIRY_TIME 1000                        new
+CONWEAVE_REPLY_TIMEOUT_EXTRA 4             new
+CONWEAVE_PATH_PAUSE_TIME 16                      new
+CONWEAVE_EXTRA_VOQ_FLUSH_TIME 64            new
+CONWEAVE_DEFAULT_VOQ_WAITING_TIME 400    new
+
+ALPHA_RESUME_INTERVAL 1         ~~~~~~(is_50_in_dcqcn_paper)
+RATE_DECREASE_INTERVAL 4        ~~~~~~(is_50_in_dcqcn_paper)
+CLAMP_TARGET_RATE 0             ~
+RP_TIMER 300                    ~~~~~~(is_300_in_dcqcn_paper)
+FAST_RECOVERY_TIMES 1           ~
+EWMA_GAIN 0.00390625           is_0.0625_in_dctcp,_else_is_0.00390625
+RATE_AI 40.0Mb/s                ~
+RATE_HAI 100.0Mb/s              ~
+MIN_RATE 100Mb/s                ~~~~~~(is_1000Mb/s_in_hpcc_code)
+DCTCP_RATE_AI 1000Mb/s    ~
+
+ERROR_RATE_PER_LINK 0.0000      ~
+L2_CHUNK_SIZE 4000              ~
+L2_ACK_INTERVAL 1               ~
+L2_BACK_TO_ZERO 0               ~
+ACK_HIGH_PRIO 1   ~
+
+RATE_BOUND 1         仅在确认下一个包的发送时间时有用
+HAS_WIN 1               ~
+VAR_WIN 1               is_0_in_dcqcn_and_timely
+GLOBAL_T 0       是否使用全局统一的窗口大小（maxBDP）
+
+ENABLE_PLB 0         ~
+ENABLE_QLEN_AWARE_EG 1  是否使用队列长度aware的出端口选择
+
+FAST_REACT 0         is_1_in_hpcc_algo,_else=0
+MI_THRESH 0                  ~
+INT_MULTI 1           ~
+
+U_TARGET 0.95                   ~
+MULTI_RATE 0                    ~
+SAMPLE_FEEDBACK 0               ~
+
+ENABLE_QCN 1                    ~
+ENABLE_FAST_CNP 1     ~
+USE_DYNAMIC_PFC_THRESHOLD 1     ~
+PACKET_PAYLOAD_SIZE 1000        ~
+
+
+LINK_DOWN 0 0 0                 ~
+KMAX_MAP 2 100000000000 1600 400000000000 6400             ~
+KMIN_MAP 2 100000000000 400 400000000000 1600             ~
+PMAX_MAP 2 100000000000 0.20 400000000000 0.20             ~
+LOAD 50                     new
+RANDOM_SEED 1                   new

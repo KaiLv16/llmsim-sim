@@ -20,6 +20,7 @@ __pycache__
 aaa.txt
 bbb.txt
 
-results/*
+*.pkl
+
 est_error.txt
 routing_table.txt

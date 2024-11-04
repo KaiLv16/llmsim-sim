@@ -130,7 +130,7 @@ def main(fname=None):
     ##############################################################
     #########    you can manually change the filename    #########
     ##############################################################
-    filename = f"results/2AZ_IRN_ECN_load_aware/irn_5ms.txt"
+    filename = f"results/2AZ_IRN_ECN_load_aware_fastCNP/irn_5ms.txt"
 
     if fname is not None:
         filename = fname
