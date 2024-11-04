@@ -112,8 +112,9 @@ qlen_aware_egress = 0           # 随机spray
 
 
 
-读取`mix/output/{config_ID}{appendnx}/{config_ID}_snd_rcv_record_file.txt`中的数据包级别的log，分析后存为`results/{config_ID}{appendnx}/flow_path_output.txt` 和 `results/{config_ID}{appendnx}/flow_send_rate.pkl`等中间文件，方便绘图使用
+读取`mix/output/{config_ID}{appendnx}/{config_ID}_snd_rcv_record_file.txt`中的数据包级别的log，分析后存为`results/{config_ID}{appendnx}/flow_path_output.txt` 和 `results/{config_ID}{appendnx}/flow_send_rate.pkl`等中间文件，方便绘图使用。
 
+可以使用文件夹名 减去 文件名前缀，以得到appendnx的值。
 ```
 python3 plot_flow_rate.py --type send
 
