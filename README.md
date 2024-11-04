@@ -107,8 +107,7 @@ qlen_aware_egress = 0           # 随机spray
 
 #### 运行绘图程序
 
-该程序使用了`mix/output/test_<x>/test_<x>_snd_rcv_record_file.txt` 中的数据包收发的log：
-
+该程序使用了`mix/output/test_<x>/test_<x>_snd_rcv_record_file.txt` 中的数据包收发的log，
 这里的`--configID + --append`就是`mix/output`中的文件名。
 
 
