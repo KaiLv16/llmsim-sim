@@ -268,9 +268,6 @@ with open(f'config/flowid_rtt.pkl', 'rb') as file:
 # 绘制图表
 plt.figure(figsize=(10, 6))
 
-# 只有 note 中包含这个字符串的才会被打印
-addition_cond_str = "71, 143"
-
 if 'send' in args.type:
     for flowid_type, rate in tqdm(flow_send_rate.items(), desc='draw send'):
         # print(flowid_type[0], end=' ')
