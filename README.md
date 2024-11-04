@@ -109,6 +109,12 @@ qlen_aware_egress = 0           # 随机spray
 
 该程序使用了`mix/output/test_<x>/test_<x>_snd_rcv_record_file.txt` 中的数据包收发的log：
 
+这里的`--configID + --append`就是`mix/output`中的文件名。
+
+
+
+读取`mix/output/{config_ID}{appendnx}/{config_ID}_snd_rcv_record_file.txt`中的数据包级别的log，分析后存为`results/{config_ID}{appendnx}/flow_path_output.txt` 和 `results/{config_ID}{appendnx}/flow_send_rate.pkl`等中间文件，方便绘图使用
+
 ```
 python3 plot_flow_rate.py --type send
 
@@ -119,6 +125,8 @@ python3 plot_flow_rate.py --x_min 19 --x_max 28 --type send
 python3 plot_flow_rate.py --type send --configID 'dcqcn(1)_fecmp(0)_pfc1_irn0'
 
 python3 plot_flow_rate.py --type send --configID 'dcqcn(1)_switch_spray(12)_pfc0_irn1'
+
+python3 plot_flow_rate.py --type send --configID 'dcqcn(1)_switch_spray(12)_pfc0_irn1' --append '156000'
 ```
 
 #### 开发tips
