@@ -1068,6 +1068,10 @@ def draw_graph(G):
     plt.close()  # 关闭图形
 
 if __name__ == '__main__':
+
+    filename = '../config/topo_dumbbell_4dcilink_2dci_4core_4tor_16host_100Gbps_100Gbps_100Gbps.txt'
+    switch_ids, host_ids = parse_ids(filename)
+    
     DP, mbs, Num_of_layers, TP = main()
     # define_inherentId_to_NICId(2, 2, 3, 2)  # in a mocked case: (2, 2, 3, 2)
     define_inherentId_to_NICId(DP, mbs, Num_of_layers, TP)  # in a mocked case: (2, 2, 3, 2)
@@ -1086,12 +1090,14 @@ if __name__ == '__main__':
         [0,1,2,3],
         [0,1,2,3,4],
     ]
+
     dsts = [
         [100,101],
         [100,101,102],
         [100,101,102,103],
         [100,101,102,103,104],
     ]
+
     assert len(srcs) == len(dsts)
     for i in range(len(srcs)):
         assert len(srcs[i]) == len(dsts[i])
@@ -1103,3 +1109,4 @@ if __name__ == '__main__':
     #     print(vnode)
     # for vflow in v_flows:
     #     print(vflow)
+    
