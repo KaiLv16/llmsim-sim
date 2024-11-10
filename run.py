@@ -240,7 +240,6 @@ def main():
     with open('mix/last_param.txt', 'w') as file:
         file.write(config_ID)
 
-
     bw = int(args.bw)
     buffer = args.buffer
     topo = args.topo    # 生成拓扑的文件名
@@ -256,7 +255,6 @@ def main():
     sw_monitoring_interval = int(args.sw_monitoring_interval)
 
     # get over-subscription ratio from topoogy name
-
     hostload = 0
     netload = args.netload
     if (not spray_test):    
@@ -368,8 +366,7 @@ def main():
             cwh_default_voq_waiting_time = 600
             cwh_tx_expiry_time = 1000  # 1ms
         else:
-            raise Exception(
-                "Unsupported ConWeave Parameter Setup")
+            raise Exception("Unsupported ConWeave Parameter Setup")
     else:
         #### CONWEAVE PARAMETERS (DUMMY) ####
         cwh_extra_reply_deadline = 4
