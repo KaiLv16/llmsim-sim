@@ -94,4 +94,9 @@ Second line: switch node IDs...
 src0 dst0 rate delay error_rate
 src1 dst1 rate delay error_rate
 ...
-switch IDs: 0,1,2,3,4,5,6,7,8,9,26,27,28,29,30,31,32,33,34,35
+switch IDs: 
+    AZ 0: 0,1,2,3,4,5,6,7,8,9
+    AZ 1: 32,33,34,35,26,27,28,29,30,31
+host IDs: 
+    AZ 0: 10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25
+    AZ 1: 36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51

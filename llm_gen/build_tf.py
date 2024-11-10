@@ -3,6 +3,7 @@
 import pandas as pd
 import argparse
 from build_llm_exec_graph import *
+from utils import *
 from collections import defaultdict
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -48,6 +49,7 @@ def vid_to_pid(print_file=None):
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Transformers Layer Configuration")
+    parser.add_argument('--topo', type=str, default='None', help='Topo aware model placement.')
     parser.add_argument('--num_of_layers', type=int, default=3, help='Number of layers in the transformer model (default: 3)')
     parser.add_argument('--global_batch', type=int, default=8192, help='Global batch size (default: 8192)')
     parser.add_argument('--micro_batch', type=int, default=1, help='Micro batch size (default: 1)')

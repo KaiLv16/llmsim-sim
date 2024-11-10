@@ -60,7 +60,16 @@ for DCI_LAT in "${DCI_LATS[@]}"; do
     python3 cross_az_topo_gen.py -n ${NUM_AZ} -w ${dci_link_num} -i ${dci_switch_num} -c ${core_switch_num} -t ${tor_switch_num} -s ${n_server_per_tor} \
                                 -B ${DCI_SPEED} -b ${DCN_SPEED} -r ${TOR_SPEED} -L "[(0, 1, '${DCI_LAT}')]" -l 1us -o dumbbell -O ${TOPOLOGY}
 
-    # 命令最后加上 &，可以让这个进行在后台运行。
+    # 命令最后加上 &，可以让这个进程在后台运行。
+
+    # 模型 - 硬件 mapping
+    topo_file='config/${TOPOLOGY}.txt'
+    # python3 llm_gen/build_tf.py --topo ${topo_file} --pp_cut 0 --global_batch 2 --micro_batch 1 --num_of_layers 2 --enable_ar true
+
+    python3 llm_gen/build_tf.py --topo topo_dumbbell_4dcilink_2dci_4core_4tor_16host_100Gbps_100Gbps_100Gbps.txt \
+            --pp_cut 0 --global_batch 2 --micro_batch 1 --num_of_layers 2 --enable_ar true
+
+
     # running test 
     cecho "GREEN" "Run Test..."
 

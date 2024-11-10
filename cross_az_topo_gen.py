@@ -2,12 +2,15 @@ import sys
 import ast
 import argparse
 import itertools
+from collections import defaultdict
 from functools import reduce
 import operator
 
 # Generate switch node IDs
-switch_node_ids = set()
-server_node_ids = dict()
+switch_node_id_tot = set()
+switch_node_ids = defaultdict(set)
+# host_node_ids = defaultdict(set)
+server_node_ids = defaultdict(list)
 
 
 def translate_delay_ns(delay):
@@ -82,12 +85,10 @@ def topo_file_gen(nAZ, nwire_num, ndciswitch, ncoreswitch, ntorswitch, serverPer
                             + ndciswitch + ncoreswitch + ntorswitch + sw_id + server_id
             # print(az, sw_type, sw_id, server_id, '->', node_id)
         if sw_type != 'server':
-            switch_node_ids.add(node_id)
+            switch_node_ids[az].add(node_id)
+            switch_node_id_tot.add(node_id)
         else:
-            if server_node_ids.get(az) == None:
-                server_node_ids[az] = [node_id]
-            else:
-                server_node_ids[az].append(node_id)
+            server_node_ids[az].append(node_id)
         return node_id
 
     # Generate connections within each data center
@@ -122,7 +123,7 @@ def topo_file_gen(nAZ, nwire_num, ndciswitch, ncoreswitch, ntorswitch, serverPer
     # Write to output file
     with open(outputfile, 'w') as f:
         f.write(f"{total_nodes} {switch_nodes} {len(links)}\n")
-        f.write(" ".join(map(str, switch_node_ids)) + "\n")
+        f.write(" ".join(map(str, switch_node_id_tot)) + "\n")
         for src, dst, rate, delay in links:
             f.write(f"{src} {dst} {rate} {delay} 0\n")
         f.write(f"""
@@ -133,7 +134,14 @@ src1 dst1 rate delay error_rate
 ...
 """)
         f.write(f"switch IDs: ")
-        f.write(','.join(map(str, list(switch_node_ids))))
+        for k, v in switch_node_ids.items():
+            f.write(f"\n    AZ {k}: ")
+            f.write(','.join(map(str, list(v))))
+        # f.write(','.join(map(str, list(switch_node_ids))))
+        f.write(f"\nhost IDs: ")
+        for k, v in server_node_ids.items():
+            f.write(f"\n    AZ {k}: ")
+            f.write(','.join(map(str, v)))
     
 # python3 cross_az_topo_gen.py -n 2 -i 1 -c 2 -t 4 -s 4 -B 100Gbps -b 50Gbps -L "[(0, 1, '3ms')]" -l 1us -o dumbbell
 # python3 cross_az_topo_gen.py -n 2 -i 1 -c 1 -t 1 -s 4 -B 100Gbps -b 100Gbps -L "[(0, 1, '3ms')]" -l 1us -o dumbbell
