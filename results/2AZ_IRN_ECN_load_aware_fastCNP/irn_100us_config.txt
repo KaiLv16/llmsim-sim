@@ -26,7 +26,7 @@ FLOWGEN_START_TIME 2.0              new
 FLOWGEN_STOP_TIME 102.0                new
 BUFFER_SIZE 9                            ~
 
-AZ_LAT 100us     ~
+AZ_LAT 5ms     ~
 
 CC_MODE 1               ~
 LB_MODE 12               new

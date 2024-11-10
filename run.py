@@ -219,7 +219,7 @@ def main():
     enabled_pfc = int(args.pfc)
     enabled_irn = int(args.irn)
 
-    config_ID = f"{args.cc}({cc_mode})_{args.lb}({lb_mode})_pfc{enabled_pfc}_irn{enabled_irn}"
+    config_ID = f"{args.cc}({cc_mode})_{args.lb}({lb_mode})_pfc{enabled_pfc}_irn{enabled_irn}_{args.lat}"
     print(f"config_ID: {config_ID}")
 
     # 如果本次参数和上次相等，就删除上次的输出
@@ -382,11 +382,11 @@ def main():
 
     # make directory if not exists
     isExist = os.path.exists(os.getcwd() + "/mix/output/" + config_ID + "/")
-    assert (not isExist)
-    # if not isExist:
-    os.makedirs(os.getcwd() + "/mix/output/" + config_ID + "/")
-    print("The new directory is created  - {}".format(os.getcwd() +
-          "/mix/output/" + config_ID + "/"))
+    # assert (not isExist)
+    if not isExist:
+        os.makedirs(os.getcwd() + "/mix/output/" + config_ID + "/")
+        print("The new directory is created  - {}".format(os.getcwd() +
+            "/mix/output/" + config_ID + "/"))
 
     config_name = os.getcwd() + "/mix/output/" + config_ID + "/config.txt"
 

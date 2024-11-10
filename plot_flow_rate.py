@@ -312,7 +312,7 @@ if 'recv' in args.type:
 
 plt.xlabel('Time (ms)')
 plt.ylabel('Rate (Gbps)')
-plt.title(f'Sending / Receiving Rates per Flow ({config_ID})')
+plt.title(f'Sending / Receiving Rates per Flow ({config_ID}{appendnx})')
 
 # plt.legend(loc='best')
 

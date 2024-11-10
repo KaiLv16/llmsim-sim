@@ -51,6 +51,7 @@ cecho "YELLOW" "----------------------------------\n"
 
 
 DCI_LATS=("1us" "100us" "300us" "500us" "1ms" "2ms" "5ms")
+# DCI_LATS=("1ms")
 
 
 for DCI_LAT in "${DCI_LATS[@]}"; do
@@ -84,14 +85,18 @@ for DCI_LAT in "${DCI_LATS[@]}"; do
     else  
         echo "File '$LOG_FILE' does not exist."  
     fi
-
+    
     # cc_modes = {"dcqcn", "hpcc", "timely", "dctcp", "hpccPint"}
     # lb_modes = {"fecmp", "drill", "conga", "letflow", "conweave", "host_spray", "switch_spray", "host_switch_spray"}
 
     # `debug` parameter is useless
+    mkdir mix/output/'dcqcn(1)_switch_spray(12)_pfc0_irn1_'${DCI_LAT}/
+
     python3 run.py  --flow_file_name ${FLOWFILE_LLM} --flow_relation ${FLOW_RELATION} --node_mapping ${NODE_MAPPING} \
     --cc dcqcn --lb switch_spray --spray 1 --pfc 0 --irn 1 --debug 0 \
-    --simul_time ${RUNTIME} --netload ${NETLOAD} --topo ${TOPOLOGY} --lat ${DCI_LAT}
+    --simul_time ${RUNTIME} --netload ${NETLOAD} --topo ${TOPOLOGY} --lat ${DCI_LAT} > mix/output/'dcqcn(1)_switch_spray(12)_pfc0_irn1_'${DCI_LAT}/print_log.txt 2>&1
+    rm mix/output/'dcqcn(1)_switch_spray(12)_pfc0_irn1_'${DCI_LAT}/*_out_conn.txt
+    rm mix/output/'dcqcn(1)_switch_spray(12)_pfc0_irn1_'${DCI_LAT}/*_out_uplink.txt
     cp mix/output/'dcqcn(1)_switch_spray(12)_pfc0_irn1'/'dcqcn(1)_switch_spray(12)_pfc0_irn1_flow_statistics_output.txt' results/2AZ_IRN_ECN_load_aware_fastCNP/irn_${DCI_LAT}.txt
     cp mix/output/'dcqcn(1)_switch_spray(12)_pfc0_irn1'/config.txt results/2AZ_IRN_ECN_load_aware_fastCNP/irn_${DCI_LAT}_config.txt
     sleep 5
