@@ -69,7 +69,6 @@ for DCI_LAT in "${DCI_LATS[@]}"; do
     python3 llm_gen/build_tf.py --topo topo_dumbbell_4dcilink_2dci_4core_4tor_16host_100Gbps_100Gbps_100Gbps.txt \
             --pp_cut 0 --global_batch 2 --micro_batch 1 --num_of_layers 2 --enable_ar true
 
-
     # running test 
     cecho "GREEN" "Run Test..."
 
